@@ -12,7 +12,6 @@ import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.List;
 
 @Slf4j
@@ -46,14 +45,17 @@ public class EndpointHitsController {
         StatsRequestDto request = new StatsRequestDto();
         request.setStart(LocalDateTime.parse(start, formatter));
         request.setEnd(LocalDateTime.parse(end, formatter));
-        if (null == uris || uris.isEmpty()) {
-            request.setUris(new ArrayList<>());
-        } else {
-            request.setUris(uris);
-        }
         request.setUnique(unique);
         log.info("Request statistics: {}", request);
 
-        return service.getStatistics(request);
+        if (null == uris || uris.isEmpty()) {
+            log.info("No URI in request.");
+            return service.getAllStatistic(request);
+        } else {
+            //Если указаны URI для статистики
+            request.setUris(uris);
+            log.info("Searching URIs: {}", request.getUris());
+            return service.getStatistics(request);
+        }
     }
 }

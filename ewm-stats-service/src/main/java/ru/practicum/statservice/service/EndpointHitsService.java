@@ -32,13 +32,25 @@ public class EndpointHitsService {
 
     @Transactional(readOnly = true)
     public List<ViewStatsDto> getStatistics(StatsRequestDto req) {
-
         List<ViewStatsDto> result;
 
         if (req.getUnique()) {
             result = repo.countEndpointHitsByUriWhereUniqueIps(req.getStart(), req.getEnd(), req.getUris());
         } else {
             result = repo.countEndpointHitsByUri(req.getStart(), req.getEnd(), req.getUris());
+        }
+
+        return result;
+    }
+
+    @Transactional(readOnly = true)
+    public List<ViewStatsDto> getAllStatistic(StatsRequestDto req) {
+        List<ViewStatsDto> result;
+
+        if (req.getUnique()) {
+            result = repo.countEndpointHitsWhereUniqueIps(req.getStart(), req.getEnd());
+        } else {
+            result = repo.countEndpointHits(req.getStart(), req.getEnd());
         }
 
         return result;
