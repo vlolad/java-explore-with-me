@@ -41,6 +41,8 @@ public class EndpointHitsController {
                                             @RequestParam(name = "end") @NotNull String end,
                                             @RequestParam(name = "uris", required = false) List<String> uris,
                                             @RequestParam(name = "unique", defaultValue = "false") Boolean unique) {
+        //Осталась эта модель (StatsRequestDto) от старой реализации поиска, решил не менять,
+        // т.к. проще передавать её в сервис и обновлять
         StatsRequestDto request = new StatsRequestDto();
         request.setStart(LocalDateTime.parse(start, formatter));
         request.setEnd(LocalDateTime.parse(end, formatter));
