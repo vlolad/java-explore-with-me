@@ -30,6 +30,7 @@ import ru.practicum.mainservice.util.StatsClient;
 
 import javax.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -60,15 +61,22 @@ public class EventService {
     public List<EventShortDto> getAllEvents(GetEventsRequest req) {
         Specification<Event> spec = createSpecForSearchAllEvents(req);
         log.debug("Spec created.");
-        Sort sort;
-        if (req.getSort().equals("EVENT_DATE")) {
-            sort = Sort.by("eventDate");
-        } else if (req.getSort().equals("VIEWS")) {
-            sort = Sort.by("views");
+        PageRequest page;
+        if (req.getSort() != null) {
+            Sort sort;
+            if (req.getSort().equals("EVENT_DATE")) {
+                sort = Sort.by("eventDate");
+            } else if (req.getSort().equals("VIEWS")) {
+                sort = Sort.by("views");
+            } else {
+                throw new ApiException("Sort " + req.getSort() + " not allowed");
+            }
+            page = PageRequest.of((req.getFrom() / req.getSize()), req.getSize(), sort);
         } else {
-            throw new ApiException("Sort " + req.getSort() + " not allowed");
+            page = PageRequest.of((req.getFrom() / req.getSize()), req.getSize());
         }
-        PageRequest page = PageRequest.of((req.getFrom() / req.getSize()), req.getSize(), sort);
+
+
         log.debug("Page created: {}, {}, {}", page.getPageNumber(), page.getPageSize(), page.getSort());
 
         List<Event> result = repo.findAll(spec, page).getContent();
@@ -90,7 +98,12 @@ public class EventService {
                 req.getRemoteAddr(), LocalDateTime.now().format(FORMATTER));
         statsClient.makeHit(hit);
         log.info("Send hit to stats-server: {}", hit);
-        event.setViews(event.getViews() + 1);
+        if (event.getViews() == null) {
+            event.setViews(1);
+        } else {
+            event.setViews(event.getViews() + 1);
+        }
+
 
         return mapper.toFullDto(event);
     }
@@ -168,13 +181,14 @@ public class EventService {
     public EventFullDto createEvent(NewEventDto eventDto, Integer userId) {
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime eventDate = LocalDateTime.parse(eventDto.getEventDate(), FORMATTER);
-        if (eventDate.isAfter(now.plusHours(2))) {
+        if (eventDate.isBefore(now.plusHours(2))) {
             throw new BadRequestException("Event time cannot be earlier than two hours from now");
         }
         Category category = findCategory(eventDto.getCategory());
         User user = findUser(userId);
         Event event = mapper.toEntity(eventDto, category, now, eventDate, user);
         event.setIsAvailable(Boolean.TRUE);
+        event.setState(EventState.PENDING);
         log.info("Saving new event: {}", event);
         repo.save(event);
 
@@ -296,7 +310,7 @@ public class EventService {
     private Specification<Event> createSpecForSearchAllEvents(GetEventsRequest req) {
         Specification<Event> spec = where(null); //ни на что не влияющая заглушка, подсмотрел на стаковерфлоу
         if (req.getText() != null) {
-            spec = spec.and(hasAnnotation(req.getText())).and(hasDescription(req.getText()));
+            spec = spec.and(hasText(req.getText()));
         }
         if (req.getCategories() != null && !req.getCategories().isEmpty()) {
             spec = spec.and(hasCategories(req.getCategories()));
@@ -322,7 +336,11 @@ public class EventService {
             spec = spec.and(hasUsers(req.getUsers()));
         }
         if (req.getStates() != null) {
-            spec = spec.and(hasStates(req.getStates()));
+            List<EventState> states = new ArrayList<>();
+            for (String state : req.getStates()) {
+                states.add(EventState.valueOf(state));
+            }
+            spec = spec.and(hasStates(states));
         }
         if (req.getCategories() != null && !req.getCategories().isEmpty()) {
             spec = spec.and(hasCategories(req.getCategories()));
