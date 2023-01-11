@@ -76,7 +76,7 @@ public class RequestService {
         if (event.getRequestModeration().equals(Boolean.TRUE)) {
             request.setStatus(RequestStatus.PENDING);
         } else {
-            request.setStatus(RequestStatus.APPROVED);
+            request.setStatus(RequestStatus.CONFIRMED);
         }
 
         Request result = repo.save(request);
@@ -101,11 +101,11 @@ public class RequestService {
         if (!request.getRequester().getId().equals(requester.getId())) {
             throw new RestrictedException("You don't have permission to cancel requests of other users.");
         }
-        if (request.getStatus().equals(RequestStatus.CANCELLED)) {
+        if (request.getStatus().equals(RequestStatus.CANCELED)) {
             throw new RestrictedException("Request if already cancelled.");
         }
 
-        request.setStatus(RequestStatus.CANCELLED);
+        request.setStatus(RequestStatus.CANCELED);
         repo.save(request);
         log.info("Request cancelled successfully.");
 
@@ -138,11 +138,11 @@ public class RequestService {
             throw new RestrictedException("No free space on this event.");
         }
         Request request = findRequest(requestId);
-        if (request.getStatus().equals(RequestStatus.APPROVED) || request.getStatus().equals(RequestStatus.CANCELLED)) {
+        if (request.getStatus().equals(RequestStatus.CONFIRMED) || request.getStatus().equals(RequestStatus.CANCELED)) {
             throw new BadRequestException("This request already approved or cancelled.");
         }
 
-        request.setStatus(RequestStatus.APPROVED);
+        request.setStatus(RequestStatus.CONFIRMED);
         Request result = repo.save(request);
 
         Event check = findEvent(eventId);
@@ -164,7 +164,7 @@ public class RequestService {
             throw new BadRequestException("This event not pre-moderated.");
         }
         Request request = findRequest(requestId);
-        if (request.getStatus().equals(RequestStatus.CANCELLED)) {
+        if (request.getStatus().equals(RequestStatus.CANCELED)) {
             throw new BadRequestException("This request already cancelled.");
         }
 
