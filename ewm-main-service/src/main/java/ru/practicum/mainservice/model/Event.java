@@ -8,6 +8,7 @@ import org.hibernate.annotations.WhereJoinTable;
 import ru.practicum.mainservice.util.EventState;
 
 import javax.persistence.*;
+import javax.validation.constraints.NotNull;
 import java.time.LocalDateTime;
 import java.util.Set;
 
@@ -38,8 +39,12 @@ public class Event {
     @JoinColumn(name = "initiator_id", referencedColumnName = "id")
     @ManyToOne
     private User initiator;
-    @JoinColumn(name = "location_id", referencedColumnName = "id")
-    @ManyToOne
+    @NotNull
+    @Embedded
+    @AttributeOverrides({
+            @AttributeOverride(name = "lat", column = @Column(name = "lat")),
+            @AttributeOverride(name = "lon", column = @Column(name = "lon"))
+    })
     public Location location;
     @Column(name = "paid")
     public Boolean paid;
@@ -52,7 +57,7 @@ public class Event {
     @Column(name = "state")
     @Enumerated(EnumType.STRING)
     private EventState state;
-    @WhereJoinTable(clause = "status='APPROVED'")
+    @WhereJoinTable(clause = "status='CONFIRMED'")
     @ManyToMany(cascade = CascadeType.PERSIST, fetch = FetchType.LAZY)
     @JoinTable(name = "requests",
             joinColumns = @JoinColumn(name = "event_id"),
