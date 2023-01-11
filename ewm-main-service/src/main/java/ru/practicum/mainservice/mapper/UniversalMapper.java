@@ -14,12 +14,16 @@ public interface UniversalMapper {
     //Маппинг Event
     @Mapping(target = "confirmedRequests",
             expression = "java(event.getConfirmedRequests()!= null ? event.getConfirmedRequests().size():0)")
+    @Mapping(target = "eventDate", dateFormat = "yyyy-MM-dd HH:mm:ss")
     EventShortDto toShortDto(Event event);
 
     List<EventShortDto> toShortDtoList(List<Event> eventList);
 
     @Mapping(target = "confirmedRequests",
             expression = "java(event.getConfirmedRequests()!= null ? event.getConfirmedRequests().size():0)")
+    @Mapping(target = "createdOn", dateFormat = "yyyy-MM-dd HH:mm:ss")
+    @Mapping(target = "eventDate", dateFormat = "yyyy-MM-dd HH:mm:ss")
+    @Mapping(target = "publishedOn", dateFormat = "yyyy-MM-dd HH:mm:ss")
     EventFullDto toFullDto(Event event);
 
     List<EventFullDto> toFullDtoList(List<Event> eventList);
