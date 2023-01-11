@@ -6,6 +6,7 @@ import lombok.NoArgsConstructor;
 import ru.practicum.mainservice.model.Location;
 
 import javax.validation.constraints.NotBlank;
+import javax.validation.constraints.NotNull;
 
 @Data
 @AllArgsConstructor
@@ -16,13 +17,13 @@ public class NewEventDto {
     private String title;
     @NotBlank
     private String annotation;
-    @NotBlank
+    @NotNull
     private Integer category;
     @NotBlank
     private String description;
     @NotBlank
     private String eventDate;
-    @NotBlank
+    @NotNull
     private Location location;
     private Boolean paid;
     private Integer participantLimit;

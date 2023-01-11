@@ -11,6 +11,7 @@ import ru.practicum.mainservice.mapper.UniversalMapper;
 import ru.practicum.mainservice.model.Category;
 import ru.practicum.mainservice.model.Event;
 import ru.practicum.mainservice.model.dto.CategoryDto;
+import ru.practicum.mainservice.model.dto.NewCategoryDto;
 import ru.practicum.mainservice.repository.CategoryRepository;
 import ru.practicum.mainservice.repository.EventRepository;
 
@@ -56,7 +57,7 @@ public class CategoryService {
     }
 
     @Transactional
-    public CategoryDto create(CategoryDto dto) {
+    public CategoryDto create(NewCategoryDto dto) {
         Category category = new Category();
         category.setName(dto.getName());
         Category result = repo.save(category);

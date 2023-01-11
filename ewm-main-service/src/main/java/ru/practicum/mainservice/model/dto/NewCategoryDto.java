@@ -5,14 +5,11 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.NotNull;
 
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class CategoryDto {
-    @NotNull
-    private Integer id;
+public class NewCategoryDto {
     @NotBlank
     private String name;
 }
