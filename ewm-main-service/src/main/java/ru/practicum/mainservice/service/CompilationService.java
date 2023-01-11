@@ -53,7 +53,7 @@ public class CompilationService {
     @Transactional
     public CompilationDto create(NewCompilationDto req) {
         Compilation compilation = new Compilation();
-        if(req.getPinned() != null) {
+        if (req.getPinned() != null) {
             compilation.setPinned(req.getPinned());
         } else {
             compilation.setPinned(Boolean.FALSE);

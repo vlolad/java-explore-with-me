@@ -18,5 +18,5 @@ public interface EventRepository extends JpaRepository<Event, Integer>, JpaSpeci
 
     Set<Event> findByIdIn(List<Integer> ids);
 
-    Optional<Event> findByCategoryId(Integer category_id);
+    Optional<Event> findByCategoryId(Integer categoryId);
 }

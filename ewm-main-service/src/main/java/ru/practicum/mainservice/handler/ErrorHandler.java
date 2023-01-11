@@ -10,7 +10,6 @@ import ru.practicum.mainservice.exception.BadRequestException;
 import ru.practicum.mainservice.exception.NotFoundException;
 
 import javax.validation.ConstraintViolationException;
-import javax.validation.ValidationException;
 import java.time.LocalDateTime;
 import java.util.Locale;
 
@@ -45,6 +44,7 @@ public class ErrorHandler {
         response.setReason("The required object was not found.");
         return response;
     }
+
     @ExceptionHandler
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ApiErrorResponse handleIllegalArgumentException(final IllegalArgumentException e) {
@@ -59,7 +59,7 @@ public class ErrorHandler {
 
     @ExceptionHandler
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ApiErrorResponse ConstraintViolationException(final ConstraintViolationException e) {
+    public ApiErrorResponse handleConstraintViolationException(final ConstraintViolationException e) {
         log.error("ConstraintViolationException: {}", e.getMessage());
         ApiErrorResponse response = new ApiErrorResponse();
         response.setTimestamp(LocalDateTime.now());
