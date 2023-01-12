@@ -30,16 +30,16 @@ public class StatsClient extends BaseClient {
     }
 
     public ResponseEntity<Object> getStats(String start, String end, List<String> uris, Boolean unique) {
-        StringBuilder stringBuilder = new StringBuilder();
+        StringBuilder sb = new StringBuilder();
         if (uris.size() >= 1) {
-            stringBuilder.append(uris.get(0));
+            sb.append(uris.get(0));
         }
         if (uris.size() > 1) {
             for (int i = 1; i < uris.size(); i++) {
-                stringBuilder.append(",").append(uris.get(i));
+                sb.append(",").append(uris.get(i));
             }
         }
-        String uri = String.valueOf(stringBuilder);
+        String uri = sb.toString();
         Map<String, Object> parameters = Map.of(
                 "start", start,
                 "end", end,
