@@ -2,6 +2,8 @@ package ru.practicum.statservice.service;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Service;
 import ru.practicum.statservice.model.*;
@@ -56,4 +58,13 @@ public class EndpointHitsService {
         return result;
     }
 
+    @Transactional(readOnly = true)
+    public List<ViewStatsDto> getByUris(List<String> uris, Integer from, Integer size) {
+        Pageable page = PageRequest.of(from/size, size);
+        if (uris != null && !uris.isEmpty()) {
+            return repo.countEndpointHitsWhereIpsIn(uris, page);
+        } else {
+            return repo.countEndpointHits(page);
+        }
+    }
 }

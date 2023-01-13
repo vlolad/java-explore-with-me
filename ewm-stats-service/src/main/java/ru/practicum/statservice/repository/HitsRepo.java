@@ -1,5 +1,6 @@
 package ru.practicum.statservice.repository;
 
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import ru.practicum.statservice.model.EndpointHit;
@@ -34,4 +35,15 @@ public interface HitsRepo extends JpaRepository<EndpointHit, Integer> {
             " where e.timestamp between ?1 and ?2 group by e.app, e.uri" +
             " order by count(distinct e.ip) desc")
     List<ViewStatsDto> countEndpointHitsWhereUniqueIps(LocalDateTime start, LocalDateTime end);
+
+    @Query("select new ru.practicum.statservice.model.ViewStatsDto(e.app, e.uri, count(e.ip))" +
+            " from EndpointHit as e" +
+            " where e.uri in (?1)" +
+            " order by count(e.ip) desc")
+    List<ViewStatsDto> countEndpointHitsWhereIpsIn(List<String> uris, Pageable pageable);
+
+    @Query("select new ru.practicum.statservice.model.ViewStatsDto(e.app, e.uri, count(e.ip))" +
+            " from EndpointHit as e" +
+            " order by count(e.ip) desc")
+    List<ViewStatsDto> countEndpointHits(Pageable pageable);
 }

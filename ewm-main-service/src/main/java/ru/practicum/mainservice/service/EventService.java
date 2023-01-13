@@ -6,10 +6,11 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import ru.practicum.mainservice.controller.request.AdminGetEventRequest;
-import ru.practicum.mainservice.controller.request.AdminUpdateEventRequest;
-import ru.practicum.mainservice.controller.request.GetEventsRequest;
-import ru.practicum.mainservice.controller.request.UpdateEventRequest;
+import org.springframework.web.client.RestClientException;
+import ru.practicum.mainservice.controller.model.AdminGetEventRequest;
+import ru.practicum.mainservice.controller.model.AdminUpdateEventRequest;
+import ru.practicum.mainservice.controller.model.GetEventsRequest;
+import ru.practicum.mainservice.controller.model.UpdateEventRequest;
 import ru.practicum.mainservice.exception.ApiException;
 import ru.practicum.mainservice.exception.BadRequestException;
 import ru.practicum.mainservice.exception.NotFoundException;
@@ -18,10 +19,7 @@ import ru.practicum.mainservice.mapper.UniversalMapper;
 import ru.practicum.mainservice.model.Category;
 import ru.practicum.mainservice.model.Event;
 import ru.practicum.mainservice.model.User;
-import ru.practicum.mainservice.model.dto.EventFullDto;
-import ru.practicum.mainservice.model.dto.EventShortDto;
-import ru.practicum.mainservice.model.dto.HitDto;
-import ru.practicum.mainservice.model.dto.NewEventDto;
+import ru.practicum.mainservice.model.dto.*;
 import ru.practicum.mainservice.repository.CategoryRepository;
 import ru.practicum.mainservice.repository.EventRepository;
 import ru.practicum.mainservice.repository.UserRepository;
@@ -30,9 +28,7 @@ import ru.practicum.mainservice.util.StatsClient;
 
 import javax.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 import static org.springframework.data.jpa.domain.Specification.where;
 import static ru.practicum.mainservice.repository.EventSpecification.*;
@@ -41,6 +37,8 @@ import static ru.practicum.mainservice.util.DateFormatter.FORMATTER;
 @Slf4j
 @Service
 public class EventService {
+
+    private final String APP_NAME = "ewm-main-service";
 
     private final EventRepository repo;
     private final StatsClient statsClient;
@@ -58,16 +56,19 @@ public class EventService {
     }
 
     @Transactional(readOnly = true)
-    public List<EventShortDto> getAllEvents(GetEventsRequest req) {
+    public List<EventShortDto> getAll(GetEventsRequest req) {
         Specification<Event> spec = createSpecForSearchAllEvents(req);
         log.debug("Spec created.");
         PageRequest page;
+        boolean viewSort = false;
+
         if (req.getSort() != null) {
             Sort sort;
             if (req.getSort().equals("EVENT_DATE")) {
                 sort = Sort.by("eventDate");
             } else if (req.getSort().equals("VIEWS")) {
-                sort = Sort.by("views");
+                sort = Sort.by("id");
+                viewSort = true;
             } else {
                 throw new ApiException("Sort " + req.getSort() + " not allowed");
             }
@@ -75,41 +76,51 @@ public class EventService {
         } else {
             page = PageRequest.of((req.getFrom() / req.getSize()), req.getSize());
         }
-
-
         log.debug("Page created: {}, {}, {}", page.getPageNumber(), page.getPageSize(), page.getSort());
 
-        List<Event> result = repo.findAll(spec, page).getContent();
+        List<Event> result;
+
+        if (viewSort) {
+            Map<Integer, Long> views = getViewsStats(req.getFrom(), req.getSize());
+            if (views.isEmpty()) {
+                result = repo.findAll(spec, page).getContent();
+            } else {
+                result = repo.findByIdIn(views.keySet(), page);
+            }
+        } else {
+            result = repo.findAll(spec, page).getContent();
+        }
         log.info("Found: {}", result.size());
 
-        HitDto hit = new HitDto(0, "ewm-main-service", req.getInfo().getRequestURI(),
-                req.getInfo().getRemoteAddr(), LocalDateTime.now().format(FORMATTER));
-        statsClient.makeHit(hit);
-        log.info("Send hit to stats-server: {}", hit);
+        sentHit(req.getInfo());
 
         return mapper.toShortDtoList(result);
     }
 
     @Transactional //не readOnly поскольку сохраняю статистику
-    public EventFullDto getEventById(Integer id, HttpServletRequest req) {
+    public EventFullDto getById(Integer id, HttpServletRequest req) {
         Event event = repo.findById(id).orElseThrow(() -> new NotFoundException("Event with id=" + id + " not found."));
+        log.debug("event - confirmedRequests = {}", event.getConfirmedRequests());
 
-        HitDto hit = new HitDto(0, "ewm-main-service", req.getRequestURI(),
-                req.getRemoteAddr(), LocalDateTime.now().format(FORMATTER));
-        statsClient.makeHit(hit);
-        log.info("Send hit to stats-server: {}", hit);
-        if (event.getViews() == null) {
-            event.setViews(1);
-        } else {
-            event.setViews(event.getViews() + 1);
+        try {
+            HitDto hit = new HitDto(0, "ewm-main-service", req.getRequestURI(),
+                    req.getRemoteAddr(), LocalDateTime.now().format(FORMATTER));
+            statsClient.makeHit(hit);
+            log.info("Send hit to stats-server: {}", hit);
+            if (event.getViews() == null) {
+                event.setViews(1);
+            } else {
+                event.setViews(event.getViews() + 1);
+            }
+        } catch (RestClientException e) {
+            log.error("Can't save statistic, exception: {}", e.getMessage());
         }
-
 
         return mapper.toFullDto(event);
     }
 
     @Transactional(readOnly = true)
-    public List<EventShortDto> getUserEvents(Integer id, Integer from, Integer size) {
+    public List<EventShortDto> getByUser(Integer id, Integer from, Integer size) {
         User initiator = findUser(id);
 
         PageRequest page = PageRequest.of(from / size, size);
@@ -120,7 +131,7 @@ public class EventService {
     }
 
     @Transactional
-    public EventFullDto updateUserEvent(Integer userId, UpdateEventRequest req) {
+    public EventFullDto updateByUser(Integer userId, UpdateEventRequest req) {
         User initiator = findUser(userId);
         Event event = findEvent(req.getEventId());
 
@@ -159,7 +170,7 @@ public class EventService {
             event.setParticipantLimit(req.getParticipantLimit());
             //Если в результате изменения события лимит участников исчерпывается - меняется флаг
             if (!event.getParticipantLimit().equals(0)
-                    && event.getParticipantLimit() <= event.getConfirmedRequests().size()) {
+                    && event.getParticipantLimit() <= event.getConfirmedRequests()) {
                 event.setIsAvailable(Boolean.FALSE);
             } else {
                 event.setIsAvailable(Boolean.TRUE);
@@ -178,7 +189,7 @@ public class EventService {
     }
 
     @Transactional
-    public EventFullDto createEvent(NewEventDto eventDto, Integer userId) {
+    public EventFullDto createByUser(NewEventDto eventDto, Integer userId) {
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime eventDate = LocalDateTime.parse(eventDto.getEventDate(), FORMATTER);
         if (eventDate.isBefore(now.plusHours(2))) {
@@ -208,7 +219,7 @@ public class EventService {
     }
 
     @Transactional
-    public EventFullDto cancelEventByUser(Integer userId, Integer eventId) {
+    public EventFullDto cancelByUser(Integer userId, Integer eventId) {
         User user = findUser(userId);
         Event event = findEvent(eventId);
         if (!event.getInitiator().getId().equals(user.getId())) {
@@ -221,7 +232,7 @@ public class EventService {
     }
 
     @Transactional(readOnly = true)
-    public List<EventFullDto> getAdminEvents(AdminGetEventRequest req) {
+    public List<EventFullDto> getByAdmin(AdminGetEventRequest req) {
         Specification<Event> spec = createSpecForSearchAllEvents(req);
         log.debug("Spec for admin created.");
         PageRequest page = PageRequest.of((req.getFrom() / req.getSize()), req.getSize());
@@ -234,7 +245,7 @@ public class EventService {
     }
 
     @Transactional
-    public EventFullDto updateEventByAdmin(Integer eventId, AdminUpdateEventRequest req) {
+    public EventFullDto updateByAdmin(Integer eventId, AdminUpdateEventRequest req) {
         Event event = findEvent(eventId);
 
         log.warn("Updating (by admin) event id={}", event.getId());
@@ -263,7 +274,7 @@ public class EventService {
         if (req.getParticipantLimit() != null) {
             event.setParticipantLimit(req.getParticipantLimit());
             if (!event.getParticipantLimit().equals(0)
-                    && event.getParticipantLimit() <= event.getConfirmedRequests().size()) {
+                    && event.getParticipantLimit() <= event.getConfirmedRequests()) {
                 event.setIsAvailable(Boolean.FALSE);
             } else {
                 event.setIsAvailable(Boolean.TRUE);
@@ -278,7 +289,7 @@ public class EventService {
     }
 
     @Transactional
-    public EventFullDto publishEvent(Integer eventId) {
+    public EventFullDto publish(Integer eventId) {
         Event event = findEvent(eventId);
         LocalDateTime ts = LocalDateTime.now();
         if (!event.getState().equals(EventState.PENDING)) {
@@ -296,7 +307,7 @@ public class EventService {
     }
 
     @Transactional
-    public EventFullDto rejectEvent(Integer eventId) {
+    public EventFullDto reject(Integer eventId) {
         Event event = findEvent(eventId);
         if (!event.getState().equals(EventState.PENDING)) {
             throw new RestrictedException("Event already cancelled or published, can't execute request.");
@@ -382,5 +393,32 @@ public class EventService {
             log.debug("Find category with id={}", id);
             return category.get();
         }
+    }
+
+    private void sentHit(HttpServletRequest req) {
+        try {
+            HitDto hit = new HitDto(0, APP_NAME, req.getRequestURI(),
+                    req.getRemoteAddr(), LocalDateTime.now().format(FORMATTER));
+            statsClient.makeHit(hit);
+            log.info("Send hit to stats-server: {}", hit);
+        } catch (RestClientException e) {
+            log.error("Send statistic failed - catch RestClientException: {}", e.getMessage());
+        }
+    }
+
+
+    private Map<Integer, Long> getViewsStats(Integer from, Integer size) {
+        List<ViewStatsDto> result = (List<ViewStatsDto>) statsClient.getAllStatsInfo(from, size).getBody();
+        log.debug("Found entries: {}", result.size());
+        Map<Integer, Long> views = new HashMap<>();
+        for (ViewStatsDto entry : result) {
+            String[] line = entry.getUri().split("/");
+            if (line.length > 1) {
+                Integer id = Integer.parseInt(line[1]);
+                views.put(id, entry.getHits());
+            }
+        }
+
+        return views;
     }
 }
