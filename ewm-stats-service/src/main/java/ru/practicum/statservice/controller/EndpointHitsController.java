@@ -1,7 +1,7 @@
 package ru.practicum.statservice.controller;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 import ru.practicum.statservice.model.EndpointHitDto;
@@ -10,24 +10,17 @@ import ru.practicum.statservice.model.ViewStatsDto;
 import ru.practicum.statservice.service.EndpointHitsService;
 
 import javax.validation.Valid;
-import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Positive;
 import javax.validation.constraints.PositiveOrZero;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @Slf4j
 @RestController
+@RequiredArgsConstructor
 public class EndpointHitsController {
 
     private final EndpointHitsService service;
-    private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-
-    @Autowired
-    public EndpointHitsController(EndpointHitsService service) {
-        this.service = service;
-    }
 
     @PostMapping("/hit")
     public EndpointHitDto create(@RequestBody @Valid EndpointHitDto request) {
@@ -39,9 +32,9 @@ public class EndpointHitsController {
     }
 
     @GetMapping("/stats")
-    public List<ViewStatsDto> getStatistics(@RequestParam(name = "start") @NotNull
+    public List<ViewStatsDto> getStatistics(@RequestParam(name = "start")
                                             @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime start,
-                                            @RequestParam(name = "end") @NotNull
+                                            @RequestParam(name = "end")
                                             @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime end,
                                             @RequestParam(name = "uris", required = false) List<String> uris,
                                             @RequestParam(name = "unique", defaultValue = "false") Boolean unique) {
@@ -64,14 +57,15 @@ public class EndpointHitsController {
         }
     }
 
-    @GetMapping("/stats/util/")
-    public List<ViewStatsDto> getStatisticsForUris(@RequestParam(name = "uris", required = false) List<String> uris,
-                                                   @RequestParam(name = "from", defaultValue = "0")
-                                                   @PositiveOrZero Integer from,
-                                                   @RequestParam(name = "size", defaultValue = "10")
-                                                   @Positive Integer size) {
-        log.info("Request statistics (from={}, size={}) by uris={}",from, size, uris);
-
-        return service.getByUris(uris, from, size);
+    @GetMapping("/stats/util")
+    public List<ViewStatsDto> getStatisticsWithoutDate(@RequestParam(name = "uris", required = false) List<String> uris,
+                                                       @RequestParam(name = "from", defaultValue = "0")
+                                                       @PositiveOrZero Integer from,
+                                                       @RequestParam(name = "size", defaultValue = "10")
+                                                       @Positive Integer size) {
+        log.info("Request statistics (from={}, size={}) by uris={}", from, size, uris);
+        // Значения для from и size сейчас не используются, но в перспективе хочу сделать предварительный запрос
+        //отсортированных по числу вызовов эндпоинтов, и оно может потребоваться
+        return service.get(uris, from, size);
     }
 }

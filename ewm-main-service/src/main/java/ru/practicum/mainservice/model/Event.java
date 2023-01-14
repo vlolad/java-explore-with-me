@@ -4,13 +4,12 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.hibernate.annotations.WhereJoinTable;
+import org.hibernate.annotations.Formula;
 import ru.practicum.mainservice.util.EventState;
 
 import javax.persistence.*;
 import javax.validation.constraints.NotNull;
 import java.time.LocalDateTime;
-import java.util.Set;
 
 @Entity
 @Table(name = "events")
@@ -23,51 +22,42 @@ public class Event {
     @Column(name = "id")
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
-    @Column(name = "title")
+    @Column(name = "title", length = 120, nullable = false)
     private String title;
-    @Column(name = "annotation")
+    @Column(name = "annotation", length = 2000, nullable = false) //Большое значение для тестов
     private String annotation;
     @JoinColumn(name = "category_id", referencedColumnName = "id")
     @ManyToOne
     private Category category;
-    @Column(name = "created_on")
+    @Column(name = "created_on", nullable = false)
     private LocalDateTime createdOn;
-    @Column(name = "description")
+    @Column(name = "description", length = 7000)
     private String description;
-    @Column(name = "event_date")
+    @Column(name = "event_date", nullable = false)
     private LocalDateTime eventDate;
     @JoinColumn(name = "initiator_id", referencedColumnName = "id")
     @ManyToOne
     private User initiator;
     @NotNull
-    @Embedded
     @AttributeOverrides({
             @AttributeOverride(name = "lat", column = @Column(name = "lat")),
             @AttributeOverride(name = "lon", column = @Column(name = "lon"))
     })
     public Location location;
-    @Column(name = "paid")
+    @Column(name = "paid", nullable = false)
     public Boolean paid;
     @Column(name = "participant_limit")
     public Integer participantLimit;
     @Column(name = "published_on")
     public LocalDateTime publishedOn;
-    @Column(name = "request_moderation")
+    @Column(name = "request_moderation", nullable = false)
     private Boolean requestModeration;
-    @Column(name = "state")
+    @Column(name = "state", nullable = false)
     @Enumerated(EnumType.STRING)
     private EventState state;
-    @WhereJoinTable(clause = "status='CONFIRMED'")
-    @ManyToMany(cascade = CascadeType.PERSIST, fetch = FetchType.LAZY)
-    @JoinTable(name = "requests",
-            joinColumns = @JoinColumn(name = "event_id"),
-            inverseJoinColumns = @JoinColumn(name = "requester_id"))
-    private Set<User> confirmedRequests;
-
-    private Integer views;
-    //Флаг для отслеживания доступности, обновление контролируется сервисным слоем
-    //Поскольку расчет автоматический в БД нужно было бы делать сверхсложным
-    @Column(name = "available")
-    private Boolean isAvailable;
+    @Formula("(SELECT COUNT(*) FROM requests as r WHERE r.event_id=id AND r.status='CONFIRMED')")
+    private Integer confirmedRequests;
+    @Transient
+    private Long views;
 
 }

@@ -53,8 +53,4 @@ public class EventSpecification {
     public static Specification<Event> hasEnd(LocalDateTime end) {
         return (root, query, cb) -> cb.lessThanOrEqualTo(root.get("eventDate"), end);
     }
-
-    public static Specification<Event> isAvailable() {
-        return (root, query, cb) -> cb.equal(root.get("isAvailable"), true);
-    }
 }

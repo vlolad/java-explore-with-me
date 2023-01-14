@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import ru.practicum.statservice.model.*;
 import ru.practicum.statservice.repository.HitsRepo;
 
+import java.util.Arrays;
 import java.util.List;
 
 @Slf4j
@@ -59,10 +60,11 @@ public class EndpointHitsService {
     }
 
     @Transactional(readOnly = true)
-    public List<ViewStatsDto> getByUris(List<String> uris, Integer from, Integer size) {
-        Pageable page = PageRequest.of(from/size, size);
+    public List<ViewStatsDto> get(List<String> uris, Integer from, Integer size) {
+        Pageable page = PageRequest.of(from / size, size);
         if (uris != null && !uris.isEmpty()) {
-            return repo.countEndpointHitsWhereIpsIn(uris, page);
+            log.debug("Search for arrays: {}", Arrays.toString(uris.toArray()));
+            return repo.countEndpointHitsWhereIpsIn(uris);
         } else {
             return repo.countEndpointHits(page);
         }

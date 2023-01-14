@@ -1,4 +1,4 @@
-package ru.practicum.mainservice.controller.request;
+package ru.practicum.mainservice.controller.model;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -21,16 +21,6 @@ public class GetEventsRequest {
     private String sort;
     private Integer from;
     private Integer size;
-    HttpServletRequest info;
+    private HttpServletRequest info;
 
-    public GetEventsRequest(String text, List<Integer> categories, Boolean paid, Boolean onlyAvailable,
-                            String sort, Integer from, Integer size) {
-        this.text = text;
-        this.categories = categories;
-        this.paid = paid;
-        this.onlyAvailable = onlyAvailable;
-        this.sort = sort;
-        this.from = from;
-        this.size = size;
-    }
 }

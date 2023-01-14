@@ -1,4 +1,4 @@
-package ru.practicum.mainservice.controller;
+package ru.practicum.mainservice.controller.request;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,17 +26,17 @@ public class RequestController {
     }
 
     @PostMapping("/users/{userId}/requests")
-    public ParticipationRequestDto sendRequest(@PathVariable("userId") Integer userId,
+    public ParticipationRequestDto send(@PathVariable("userId") Integer userId,
                                                @RequestParam(name = "eventId") Integer eventId) {
         log.info("Get request for create request to event id={} from user id={}", eventId, userId);
         return service.create(userId, eventId);
     }
 
     @PatchMapping("/users/{userId}/requests/{requestId}/cancel")
-    public ParticipationRequestDto cancelRequestByRequester(@PathVariable("userId") Integer userId,
+    public ParticipationRequestDto cancel(@PathVariable("userId") Integer userId,
                                                             @PathVariable("requestId") Integer requestId) {
         log.info("Get request for cancel request id={} from user id={}", requestId, userId);
-        return service.cancelRequestByRequester(userId, requestId);
+        return service.cancelByRequester(userId, requestId);
     }
 
     @GetMapping("/users/{userId}/events/{eventId}/requests")
@@ -47,18 +47,18 @@ public class RequestController {
     }
 
     @PatchMapping("/users/{userId}/events/{eventId}/requests/{requestId}/confirm")
-    public ParticipationRequestDto confirmRequest(@PathVariable("userId") Integer userId,
+    public ParticipationRequestDto confirm(@PathVariable("userId") Integer userId,
                                                   @PathVariable("eventId") Integer eventId,
                                                   @PathVariable("requestId") Integer requestId) {
         log.info("Get request for confirm request id={} for event id={} by user id={}", requestId, eventId, userId);
-        return service.confirmRequest(userId, eventId, requestId);
+        return service.confirm(userId, eventId, requestId);
     }
 
     @PatchMapping("/users/{userId}/events/{eventId}/requests/{requestId}/reject")
-    public ParticipationRequestDto rejectRequest(@PathVariable("userId") Integer userId,
+    public ParticipationRequestDto reject(@PathVariable("userId") Integer userId,
                                                  @PathVariable("eventId") Integer eventId,
                                                  @PathVariable("requestId") Integer requestId) {
         log.info("Get request for reject request id={} for event id={} by user id={}", requestId, eventId, userId);
-        return service.rejectRequest(userId, eventId, requestId);
+        return service.reject(userId, eventId, requestId);
     }
 }

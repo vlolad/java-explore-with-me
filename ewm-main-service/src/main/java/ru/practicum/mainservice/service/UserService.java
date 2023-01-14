@@ -1,7 +1,7 @@
 package ru.practicum.mainservice.service;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,46 +14,35 @@ import java.util.List;
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class UserService {
 
-    private final UserRepository repo;
-    private final UniversalMapper mapper;
+    private final UserRepository userRepo;
+    private final UniversalMapper universalMapper;
 
-    @Autowired
-    public UserService(UserRepository repo, UniversalMapper mapper) {
-        this.repo = repo;
-        this.mapper = mapper;
+    public List<UserDto> getAll(Integer from, Integer size) {
+        PageRequest page = PageRequest.of(from / size, size);
+        List<User> result = userRepo.findAll(page).getContent();
+        log.info("Users found = {}", result.size());
+        return universalMapper.toUserDtoList(result);
     }
 
-    @Transactional(readOnly = true)
-    public List<UserDto> getAllUsers(Integer from, Integer size) {
-        PageRequest page = PageRequest.of(from / size, size);
-        List<User> result = repo.findAll(page).getContent();
+    public List<UserDto> getByIds(List<Integer> ids) {
+        List<User> result = userRepo.findByIdIn(ids);
         log.info("Users found = {}", result.size());
-        return mapper.toUserDtoList(result);
-    }
-
-    @Transactional(readOnly = true)
-    public List<UserDto> getUsers(List<Integer> ids, Integer from, Integer size) {
-        PageRequest page = PageRequest.of(from / size, size);
-        List<User> result = repo.findByIdIn(ids, page);
-        log.info("Users found = {}", result.size());
-        return mapper.toUserDtoList(result);
+        return universalMapper.toUserDtoList(result);
     }
 
     @Transactional
     public UserDto create(UserDto dto) {
-        User user = new User();
-        user.setName(dto.getName());
-        user.setEmail(dto.getEmail());
-
-        User result = repo.save(user);
+        User result = userRepo.save(universalMapper.toUserEntity(dto));
         log.info("User created successfully with id={}", result.getId());
-        return mapper.toDto(result);
+        return universalMapper.toDto(result);
     }
 
     @Transactional
     public void delete(Integer id) {
-        repo.deleteById(id);
+        userRepo.deleteById(id);
     }
 }

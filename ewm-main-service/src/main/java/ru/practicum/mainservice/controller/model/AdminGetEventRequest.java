@@ -1,4 +1,4 @@
-package ru.practicum.mainservice.controller.request;
+package ru.practicum.mainservice.controller.model;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -19,12 +19,4 @@ public class AdminGetEventRequest {
     private Integer from;
     private Integer size;
 
-    public AdminGetEventRequest(List<Integer> users, List<String> states, List<Integer> categories,
-                                Integer from, Integer size) {
-        this.users = users;
-        this.states = states;
-        this.categories = categories;
-        this.from = from;
-        this.size = size;
-    }
 }

@@ -20,15 +20,15 @@ public class Request {
     @Column(name = "id")
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
-    @Column(name = "created")
+    @Column(name = "created", nullable = false)
     private LocalDateTime created;
     @ManyToOne
-    @JoinColumn(name = "event_id")
+    @JoinColumn(name = "event_id", nullable = false)
     private Event event;
     @ManyToOne
-    @JoinColumn(name = "requester_id")
+    @JoinColumn(name = "requester_id", nullable = false)
     private User requester;
-    @Column(name = "status")
+    @Column(name = "status", length = 15, nullable = false)
     @Enumerated(EnumType.STRING)
     private RequestStatus status;
 }

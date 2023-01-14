@@ -1,6 +1,10 @@
 package ru.practicum.mainservice.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
@@ -29,6 +33,7 @@ import ru.practicum.mainservice.util.StatsClient;
 import javax.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static org.springframework.data.jpa.domain.Specification.where;
 import static ru.practicum.mainservice.repository.EventSpecification.*;
@@ -36,31 +41,24 @@ import static ru.practicum.mainservice.util.DateFormatter.FORMATTER;
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class EventService {
+    @Value("${this-app.name}")
+    private String APP_NAME;
 
-    private final String APP_NAME = "ewm-main-service";
-
-    private final EventRepository repo;
+    private final EventRepository eventRepo;
     private final StatsClient statsClient;
-    private final UniversalMapper mapper;
+    private final UniversalMapper universalMapper;
     private final UserRepository userRepo;
     private final CategoryRepository categoryRepo;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public EventService(EventRepository repo, StatsClient statsClient, UniversalMapper mapper,
-                        UserRepository userRepo, CategoryRepository categoryRepo) {
-        this.repo = repo;
-        this.statsClient = statsClient;
-        this.mapper = mapper;
-        this.userRepo = userRepo;
-        this.categoryRepo = categoryRepo;
-    }
-
-    @Transactional(readOnly = true)
     public List<EventShortDto> getAll(GetEventsRequest req) {
         Specification<Event> spec = createSpecForSearchAllEvents(req);
         log.debug("Spec created.");
         PageRequest page;
-        boolean viewSort = false;
+        boolean viewsSort = false;
 
         if (req.getSort() != null) {
             Sort sort;
@@ -68,7 +66,7 @@ public class EventService {
                 sort = Sort.by("eventDate");
             } else if (req.getSort().equals("VIEWS")) {
                 sort = Sort.by("id");
-                viewSort = true;
+                viewsSort = true;
             } else {
                 throw new ApiException("Sort " + req.getSort() + " not allowed");
             }
@@ -76,58 +74,49 @@ public class EventService {
         } else {
             page = PageRequest.of((req.getFrom() / req.getSize()), req.getSize());
         }
+
         log.debug("Page created: {}, {}, {}", page.getPageNumber(), page.getPageSize(), page.getSort());
 
-        List<Event> result;
-
-        if (viewSort) {
-            Map<Integer, Long> views = getViewsStats(req.getFrom(), req.getSize());
-            if (views.isEmpty()) {
-                result = repo.findAll(spec, page).getContent();
-            } else {
-                result = repo.findByIdIn(views.keySet(), page);
-            }
-        } else {
-            result = repo.findAll(spec, page).getContent();
-        }
+        List<Event> result = eventRepo.findAll(spec, page).getContent();
         log.info("Found: {}", result.size());
+
+        //Получение статистики по просмотрам ивентов
+        setStatsToEvents(result);
 
         sentHit(req.getInfo());
 
-        return mapper.toShortDtoList(result);
-    }
-
-    @Transactional //не readOnly поскольку сохраняю статистику
-    public EventFullDto getById(Integer id, HttpServletRequest req) {
-        Event event = repo.findById(id).orElseThrow(() -> new NotFoundException("Event with id=" + id + " not found."));
-        log.debug("event - confirmedRequests = {}", event.getConfirmedRequests());
-
-        try {
-            HitDto hit = new HitDto(0, "ewm-main-service", req.getRequestURI(),
-                    req.getRemoteAddr(), LocalDateTime.now().format(FORMATTER));
-            statsClient.makeHit(hit);
-            log.info("Send hit to stats-server: {}", hit);
-            if (event.getViews() == null) {
-                event.setViews(1);
-            } else {
-                event.setViews(event.getViews() + 1);
-            }
-        } catch (RestClientException e) {
-            log.error("Can't save statistic, exception: {}", e.getMessage());
+        if (viewsSort) {
+            result = result.stream().sorted(Comparator.comparingLong(Event::getViews).reversed())
+                    .collect(Collectors.toList());
+        }
+        if (req.getOnlyAvailable().equals(Boolean.TRUE)) {
+            result = result.stream().filter(e -> e.getParticipantLimit().equals(0)
+                    || e.getParticipantLimit() > e.getConfirmedRequests()).collect(Collectors.toList());
         }
 
-        return mapper.toFullDto(event);
+        return universalMapper.toShortDtoList(result);
     }
 
-    @Transactional(readOnly = true)
+    public EventFullDto getById(Integer id, HttpServletRequest req) {
+        Event event = eventRepo.findById(id)
+                .orElseThrow(() -> new NotFoundException("Event with id=" + id + " not found."));
+        log.debug("event - confirmedRequests = {}", event.getConfirmedRequests());
+
+        setStatsToEvent(event);
+        sentHit(req);
+
+        return universalMapper.toFullDto(event);
+    }
+
     public List<EventShortDto> getByUser(Integer id, Integer from, Integer size) {
         User initiator = findUser(id);
 
         PageRequest page = PageRequest.of(from / size, size);
-        List<Event> result = repo.findAllByInitiator(initiator, page).getContent();
+        List<Event> result = eventRepo.findAllByInitiator(initiator, page).getContent();
         log.info("Found events = {}", result.size());
+        setStatsToEvents(result);
 
-        return mapper.toShortDtoList(result);
+        return universalMapper.toShortDtoList(result);
     }
 
     @Transactional
@@ -147,66 +136,32 @@ public class EventService {
         }
 
         log.info("Updating event id={}", event.getId());
-        if (req.getTitle() != null) {
-            event.setTitle(req.getTitle());
-        }
-        if (req.getAnnotation() != null) {
-            event.setAnnotation(req.getAnnotation());
-        }
-        if (req.getCategory() != null) {
-            Category category = findCategory(req.getCategory());
-            event.setCategory(category);
-        }
-        if (req.getDescription() != null) {
-            event.setDescription(req.getDescription());
-        }
-        if (req.getEventDate() != null) {
-            event.setEventDate(LocalDateTime.parse(req.getEventDate(), FORMATTER));
-        }
-        if (req.getPaid() != null) {
-            event.setPaid(req.getPaid());
-        }
-        if (req.getParticipantLimit() != null) {
-            event.setParticipantLimit(req.getParticipantLimit());
-            //Если в результате изменения события лимит участников исчерпывается - меняется флаг
-            if (!event.getParticipantLimit().equals(0)
-                    && event.getParticipantLimit() <= event.getConfirmedRequests()) {
-                event.setIsAvailable(Boolean.FALSE);
-            } else {
-                event.setIsAvailable(Boolean.TRUE);
-            }
-        }
-        if (req.getRequestModeration() != null) {
-            event.setRequestModeration(req.getRequestModeration());
-        }
-
-        if (event.getState().equals(EventState.CANCELED)) {
-            event.setState(EventState.PENDING);
-        }
+        updateEvent(event, universalMapper.toUpdateUtilDto(req));
 
         log.info("Updated successfully.");
-        return mapper.toFullDto(event);
+        setStatsToEvent(event);
+        return universalMapper.toFullDto(event);
     }
 
     @Transactional
     public EventFullDto createByUser(NewEventDto eventDto, Integer userId) {
         LocalDateTime now = LocalDateTime.now();
-        LocalDateTime eventDate = LocalDateTime.parse(eventDto.getEventDate(), FORMATTER);
+        LocalDateTime eventDate = eventDto.getEventDate();
         if (eventDate.isBefore(now.plusHours(2))) {
             throw new BadRequestException("Event time cannot be earlier than two hours from now");
         }
         Category category = findCategory(eventDto.getCategory());
         User user = findUser(userId);
-        Event event = mapper.toEntity(eventDto, category, now, eventDate, user);
-        event.setIsAvailable(Boolean.TRUE);
+        Event event = universalMapper.toEntity(eventDto, category, now, eventDate, user);
+        //event.setIsAvailable(Boolean.TRUE);
         event.setState(EventState.PENDING);
+        event.setViews(0L);
         log.info("Saving new event: {}", event);
-        repo.save(event);
+        eventRepo.save(event);
 
-        return mapper.toFullDto(event);
+        return universalMapper.toFullDto(event);
     }
 
-    @Transactional(readOnly = true)
     public EventFullDto getUserEventById(Integer userId, Integer eventId) {
         User user = findUser(userId);
         Event event = findEvent(eventId);
@@ -215,7 +170,8 @@ public class EventService {
         }
 
         log.info("Event with id={} found successfully.", eventId);
-        return mapper.toFullDto(event);
+        setStatsToEvent(event);
+        return universalMapper.toFullDto(event);
     }
 
     @Transactional
@@ -228,20 +184,20 @@ public class EventService {
 
         event.setState(EventState.CANCELED);
         log.info("Event with id={} cancelled successfully.", eventId);
-        return mapper.toFullDto(event);
+        setStatsToEvent(event);
+        return universalMapper.toFullDto(event);
     }
 
-    @Transactional(readOnly = true)
     public List<EventFullDto> getByAdmin(AdminGetEventRequest req) {
         Specification<Event> spec = createSpecForSearchAllEvents(req);
         log.debug("Spec for admin created.");
         PageRequest page = PageRequest.of((req.getFrom() / req.getSize()), req.getSize());
         log.debug("Page created: {}, {}", page.getPageNumber(), page.getPageSize());
 
-        List<Event> result = repo.findAll(spec, page).getContent();
+        List<Event> result = eventRepo.findAll(spec, page).getContent();
         log.info("Found: {}", result.size());
-
-        return mapper.toFullDtoList(result);
+        setStatsToEvents(result);
+        return universalMapper.toFullDtoList(result);
     }
 
     @Transactional
@@ -249,43 +205,14 @@ public class EventService {
         Event event = findEvent(eventId);
 
         log.warn("Updating (by admin) event id={}", event.getId());
-        if (req.getTitle() != null) {
-            event.setTitle(req.getTitle());
-        }
-        if (req.getAnnotation() != null) {
-            event.setAnnotation(req.getAnnotation());
-        }
-        if (req.getCategory() != null) {
-            Category category = findCategory(req.getCategory());
-            event.setCategory(category);
-        }
-        if (req.getDescription() != null) {
-            event.setDescription(req.getDescription());
-        }
-        if (req.getEventDate() != null) {
-            event.setEventDate(LocalDateTime.parse(req.getEventDate(), FORMATTER));
-        }
-        if (req.getLocation() != null) {
-            event.setLocation(req.getLocation());
-        }
-        if (req.getPaid() != null) {
-            event.setPaid(req.getPaid());
-        }
-        if (req.getParticipantLimit() != null) {
-            event.setParticipantLimit(req.getParticipantLimit());
-            if (!event.getParticipantLimit().equals(0)
-                    && event.getParticipantLimit() <= event.getConfirmedRequests()) {
-                event.setIsAvailable(Boolean.FALSE);
-            } else {
-                event.setIsAvailable(Boolean.TRUE);
-            }
-        }
-        if (req.getRequestModeration() != null) {
-            event.setRequestModeration(req.getRequestModeration());
-        }
+
+        EventUpdateUtilDto updateRequest = universalMapper.toUpdateUtilDto(req);
+        updateRequest.setUpdateByAdmin(true);
+        updateEvent(event, updateRequest);
 
         log.info("Updated successfully.");
-        return mapper.toFullDto(event);
+        setStatsToEvent(event);
+        return universalMapper.toFullDto(event);
     }
 
     @Transactional
@@ -303,7 +230,8 @@ public class EventService {
         event.setState(EventState.PUBLISHED);
         event.setPublishedOn(ts);
         log.info("Event id={} published successfully at {}.", eventId, ts);
-        return mapper.toFullDto(event);
+        setStatsToEvent(event);
+        return universalMapper.toFullDto(event);
     }
 
     @Transactional
@@ -315,7 +243,8 @@ public class EventService {
 
         event.setState(EventState.CANCELED);
         log.info("Event id={} cancelled.", eventId);
-        return mapper.toFullDto(event);
+        setStatsToEvent(event);
+        return universalMapper.toFullDto(event);
     }
 
     private Specification<Event> createSpecForSearchAllEvents(GetEventsRequest req) {
@@ -334,9 +263,6 @@ public class EventService {
         }
         if (req.getRangeEnd() != null) {
             spec = spec.and(hasEnd(req.getRangeEnd()));
-        }
-        if (req.getOnlyAvailable()) {
-            spec = spec.and(isAvailable());
         }
         return spec;
     }
@@ -376,7 +302,7 @@ public class EventService {
     }
 
     private Event findEvent(Integer id) {
-        Optional<Event> event = repo.findById(id);
+        Optional<Event> event = eventRepo.findById(id);
         if (event.isEmpty()) {
             throw new NotFoundException("Event with id=" + id + " not found.");
         } else {
@@ -406,19 +332,90 @@ public class EventService {
         }
     }
 
+    private void setStatsToEvents(List<Event> events) {
+        List<Integer> eventIds = new ArrayList<>();
+        for (Event event : events) {
+            eventIds.add(event.getId());
+        }
+        log.debug("Events ids size={}", eventIds.size());
+        Map<Integer, Long> views = getStatsInfo(eventIds);
 
-    private Map<Integer, Long> getViewsStats(Integer from, Integer size) {
-        List<ViewStatsDto> result = (List<ViewStatsDto>) statsClient.getAllStatsInfo(from, size).getBody();
-        log.debug("Found entries: {}", result.size());
+        for (Event event : events) {
+            if (views.get(event.getId()) != null) {
+                event.setViews(views.get(event.getId()));
+            } else {
+                event.setViews(0L);
+            }
+        }
+    }
+
+    private void setStatsToEvent(Event event) {
+        Map<Integer, Long> views = getStatsInfo(List.of(event.getId()));
+        if (views.get(event.getId()) != null) {
+            event.setViews(views.get(event.getId()));
+        } else {
+            event.setViews(0L);
+        }
+    }
+
+    private Map<Integer, Long> getStatsInfo(List<Integer> ids) {
+        List<String> uris = new ArrayList<>();
+        for (Integer id : ids) {
+            uris.add("/events/" + id);
+        }
+        log.debug("Send request for ids size={}", uris.size());
+        List<ViewStatsDto> listViews = objectMapper
+                .convertValue(statsClient.getStatsInfo(uris).getBody(), new TypeReference<List<ViewStatsDto>>() {
+                });
+        log.debug(listViews.toString());
+
         Map<Integer, Long> views = new HashMap<>();
-        for (ViewStatsDto entry : result) {
+        for (ViewStatsDto entry : listViews) {
             String[] line = entry.getUri().split("/");
-            if (line.length > 1) {
-                Integer id = Integer.parseInt(line[1]);
+            if (line.length > 2) {
+                Integer id = Integer.parseInt(line[2]);
                 views.put(id, entry.getHits());
+                log.debug("Put in viewsMap: key={} value={}", id, entry.getHits());
             }
         }
 
         return views;
+    }
+
+    @Transactional
+    protected void updateEvent(Event event, EventUpdateUtilDto req) {
+        if (req.getTitle() != null && !req.getTitle().isBlank()) {
+            event.setTitle(req.getTitle());
+        }
+        if (req.getAnnotation() != null && !req.getAnnotation().isBlank()) {
+            event.setAnnotation(req.getAnnotation());
+        }
+        if (req.getCategory() != null) {
+            Category category = findCategory(req.getCategory());
+            event.setCategory(category);
+        }
+        if (req.getDescription() != null && !req.getDescription().isBlank()) {
+            event.setDescription(req.getDescription());
+        }
+        if (req.getEventDate() != null) {
+            event.setEventDate(req.getEventDate());
+        }
+        if (req.getLocation() != null) {
+            event.setLocation(req.getLocation());
+        }
+        if (req.getPaid() != null) {
+            event.setPaid(req.getPaid());
+        }
+        if (req.getParticipantLimit() != null) {
+            event.setParticipantLimit(req.getParticipantLimit());
+        }
+        if (req.getRequestModeration() != null) {
+            event.setRequestModeration(req.getRequestModeration());
+        }
+        if (!req.isUpdateByAdmin()) {
+            if (event.getState().equals(EventState.CANCELED)) {
+                event.setState(EventState.PENDING);
+            }
+        }
     }
 }

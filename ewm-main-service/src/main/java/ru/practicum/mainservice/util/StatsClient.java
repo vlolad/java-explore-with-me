@@ -16,7 +16,7 @@ import java.util.Map;
 public class StatsClient extends BaseClient {
 
     @Autowired
-    public StatsClient(@Value("http://stats-service:9090") String serverUrl, RestTemplateBuilder builder) {
+    public StatsClient(@Value("${stats-server.url}") String serverUrl, RestTemplateBuilder builder) {
         super(
                 builder
                         .uriTemplateHandler(new DefaultUriBuilderFactory(serverUrl))
@@ -40,14 +40,12 @@ public class StatsClient extends BaseClient {
         return get("/stats?start={start}&end={end}&uris={uris}&unique={unique}", parameters);
     }
 
-    public ResponseEntity<Object> getStatsInfo(List<String> uris, Integer from, Integer size) {
-                String uri = buildUris(uris);
+    public ResponseEntity<Object> getStatsInfo(List<String> uris) {
+        String uri = buildUris(uris);
         Map<String, Object> parameters = Map.of(
-                "uris", uri,
-                "from", from,
-                "size", size
+                "uris", uri
         );
-        return get("/stats/util?uris={uris}&from={from}&size={size}", parameters);
+        return get("/stats/util?uris={uris}", parameters);
     }
 
     public ResponseEntity<Object> getAllStatsInfo(Integer from, Integer size) {

@@ -1,7 +1,7 @@
 package ru.practicum.mainservice.service;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.practicum.mainservice.exception.BadRequestException;
@@ -24,29 +24,20 @@ import java.util.Optional;
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class RequestService {
 
-    private final RequestRepository repo;
+    private final RequestRepository requestRepo;
     private final UserRepository userRepo;
     private final EventRepository eventRepo;
-    private final UniversalMapper mapper;
-
-    @Autowired
-    public RequestService(RequestRepository repo, UserRepository userRepo,
-                          EventRepository eventRepo, UniversalMapper mapper) {
-        this.repo = repo;
-        this.userRepo = userRepo;
-        this.eventRepo = eventRepo;
-        this.mapper = mapper;
-    }
+    private final UniversalMapper universalMapper;
 
     @Transactional(readOnly = true)
     public List<ParticipationRequestDto> getUserRequests(Integer id) {
-        User user = findUser(id);
-        List<Request> result = repo.findAllByRequesterId(id);
+        List<Request> result = requestRepo.findAllByRequesterId(id);
         log.info("Found: {}", result.size());
 
-        return mapper.toRequestDtoList(result);
+        return universalMapper.toRequestDtoList(result);
     }
 
     @Transactional
@@ -54,7 +45,7 @@ public class RequestService {
         User requester = findUser(userId);
         Event event = findEvent(eventId);
         //Проверка запроса
-        Optional<Request> check = repo.findByEventIdAndRequesterId(eventId, userId);
+        Optional<Request> check = requestRepo.findByEventIdAndRequesterId(eventId, userId);
         if (check.isPresent()) {
             throw new RestrictedException("You are already sent request for this event.");
         }
@@ -65,7 +56,7 @@ public class RequestService {
             throw new RestrictedException("Event is not published, can't send request.");
         }
         if (!event.getParticipantLimit().equals(0)
-                && event.getParticipantLimit() <= event.getConfirmedRequests().size()) {
+                && event.getParticipantLimit() <= event.getConfirmedRequests()) {
             throw new RestrictedException("No free space on this event.");
         }
 
@@ -79,107 +70,75 @@ public class RequestService {
             request.setStatus(RequestStatus.CONFIRMED);
         }
 
-        Request result = repo.save(request);
+        Request result = requestRepo.save(request);
         log.info("Request created successfully.");
 
-        //Проверяем, не нужно ли менять флаг available у event
-        Event updatedEvent = result.getEvent();
-        if (!updatedEvent.getParticipantLimit().equals(0)
-                && updatedEvent.getParticipantLimit().equals(updatedEvent.getConfirmedRequests().size())) {
-            updatedEvent.setIsAvailable(Boolean.FALSE);
-            log.info("Event id={} is full and no longer available.", updatedEvent);
-            eventRepo.save(updatedEvent);
-        }
-
-        return mapper.toRequestDto(result);
+        return universalMapper.toRequestDto(result);
     }
 
     @Transactional
-    public ParticipationRequestDto cancelRequestByRequester(Integer userId, Integer requestId) {
-        User requester = findUser(userId);
-        Request request = findRequest(requestId);
-        if (!request.getRequester().getId().equals(requester.getId())) {
-            throw new RestrictedException("You don't have permission to cancel requests of other users.");
-        }
+    public ParticipationRequestDto cancelByRequester(Integer userId, Integer requestId) {
+        Request request = findRequestWithRequesterId(requestId, userId);
         if (request.getStatus().equals(RequestStatus.CANCELED)) {
             throw new RestrictedException("Request if already cancelled.");
         }
 
         request.setStatus(RequestStatus.CANCELED);
-        repo.save(request);
         log.info("Request cancelled successfully.");
 
-        Event event = findEvent(request.getEvent().getId());
-        if (!event.getParticipantLimit().equals(0)
-                && event.getParticipantLimit() > event.getConfirmedRequests().size()) {
-            event.setIsAvailable(Boolean.TRUE);
-        }
-
-        return mapper.toRequestDto(request);
+        return universalMapper.toRequestDto(request);
     }
 
     @Transactional(readOnly = true)
     public List<ParticipationRequestDto> getRequestsForUserEvent(Integer userId, Integer eventId) {
-        User initiator = findUser(userId); //Проверка на то, что пользователь существует
-        List<Request> result = repo.findByEventId(eventId);
+        List<Request> result = requestRepo.findAllByEventIdAndEventInitiatorId(eventId, userId);
         log.info("Found: {}", result.size());
 
-        return mapper.toRequestDtoList(result);
+        return universalMapper.toRequestDtoList(result);
     }
 
     @Transactional
-    public ParticipationRequestDto confirmRequest(Integer userId, Integer eventId, Integer requestId) {
-        User initiator = findUser(userId);
-        Event event = findEvent(eventId);
-        if (event.getRequestModeration().equals(Boolean.FALSE)) {
-            throw new BadRequestException("This event not pre-moderated.");
-        }
-        if (!event.getIsAvailable()) {
+    public ParticipationRequestDto confirm(Integer userId, Integer eventId, Integer requestId) {
+        Event event = baseRequestCheck(userId, eventId);
+        if (!event.getParticipantLimit().equals(0)
+                && event.getParticipantLimit() <= event.getConfirmedRequests()) {
             throw new RestrictedException("No free space on this event.");
         }
         Request request = findRequest(requestId);
+        checkEventIdInRequest(event.getId(), request.getEvent().getId());
         if (request.getStatus().equals(RequestStatus.CONFIRMED) || request.getStatus().equals(RequestStatus.CANCELED)) {
             throw new BadRequestException("This request already approved or cancelled.");
         }
 
         request.setStatus(RequestStatus.CONFIRMED);
-        Request result = repo.save(request);
-
-        Event check = findEvent(eventId);
-        if (!check.getParticipantLimit().equals(0)
-                && check.getParticipantLimit() <= check.getConfirmedRequests().size()) {
-            check.setIsAvailable(Boolean.FALSE);
-            eventRepo.save(check);
-            log.info("Event id={} is full and no longer available.", check);
+        if (event.getConfirmedRequests().equals(event.getParticipantLimit() + 1)) {
+            automaticRejectRequests(eventId);
         }
 
-        return mapper.toRequestDto(result);
+        return universalMapper.toRequestDto(request);
     }
 
     @Transactional
-    public ParticipationRequestDto rejectRequest(Integer userId, Integer eventId, Integer requestId) {
-        User initiator = findUser(userId);
-        Event event = findEvent(eventId);
-        if (event.getRequestModeration().equals(Boolean.FALSE)) {
-            throw new BadRequestException("This event not pre-moderated.");
-        }
+    public ParticipationRequestDto reject(Integer userId, Integer eventId, Integer requestId) {
+        Event event = baseRequestCheck(userId, eventId);
         Request request = findRequest(requestId);
+        checkEventIdInRequest(event.getId(), request.getEvent().getId());
         if (request.getStatus().equals(RequestStatus.CANCELED)) {
             throw new BadRequestException("This request already cancelled.");
         }
 
         request.setStatus(RequestStatus.REJECTED);
-        Request result = repo.save(request);
 
-        Event check = findEvent(eventId);
-        if (check.getParticipantLimit().equals(0)
-                && check.getParticipantLimit() > check.getConfirmedRequests().size()) {
-            check.setIsAvailable(Boolean.TRUE);
-            eventRepo.save(check);
-            log.info("Event id={} is now available for joining.", check);
+        return universalMapper.toRequestDto(request);
+    }
+
+    @Transactional
+    protected void automaticRejectRequests(Integer eventId) {
+        List<Request> allRequests = requestRepo.findAllByEventIdAndStatus(eventId, RequestStatus.PENDING);
+        log.warn("Auto-reject {} requests for event id={}", allRequests.size(), eventId);
+        for (Request request : allRequests) {
+            request.setStatus(RequestStatus.REJECTED);
         }
-
-        return mapper.toRequestDto(result);
     }
 
     private User findUser(Integer id) {
@@ -203,7 +162,7 @@ public class RequestService {
     }
 
     private Request findRequest(Integer id) {
-        Optional<Request> request = repo.findById(id);
+        Optional<Request> request = requestRepo.findById(id);
         if (request.isEmpty()) {
             throw new NotFoundException("Request with id=" + id + " not found.");
         } else {
@@ -211,4 +170,32 @@ public class RequestService {
             return request.get();
         }
     }
+
+    private Request findRequestWithRequesterId(Integer requestId, Integer userId) {
+        Optional<Request> request = requestRepo.findByIdAndRequesterId(requestId, userId);
+        if (request.isEmpty()) {
+            throw new NotFoundException("Request with id=" + requestId + " and requesterId=" + userId + " not found.");
+        } else {
+            log.debug("Find request with id={}", requestId);
+            return request.get();
+        }
+    }
+
+     private Event baseRequestCheck(Integer userId, Integer eventId) {
+         User initiator = findUser(userId);
+         Event event = findEvent(eventId);
+         if (event.getRequestModeration().equals(Boolean.FALSE) || event.getParticipantLimit().equals(0)) {
+             throw new BadRequestException("This event not pre-moderated.");
+         }
+         if (!event.getInitiator().getId().equals(initiator.getId())) {
+             throw new RestrictedException("You have no access to confirm requests for this event.");
+         }
+         return event;
+     }
+
+     private void checkEventIdInRequest(Integer eventId, Integer inRequestEventId) {
+         if (!eventId.equals(inRequestEventId)) {
+             throw new BadRequestException("Event id in request and confirmation are different.");
+         }
+     }
 }

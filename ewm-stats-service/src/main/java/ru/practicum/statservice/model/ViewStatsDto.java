@@ -13,10 +13,8 @@ import javax.validation.constraints.Positive;
 @NoArgsConstructor
 public class ViewStatsDto {
 
-    @NotNull
     @NotBlank
     private String uri;
-    @NotNull
     @NotBlank
     private String app;
     @NotNull

@@ -1,4 +1,4 @@
-package ru.practicum.mainservice.controller.request;
+package ru.practicum.mainservice.controller.model;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -13,6 +13,6 @@ import java.util.List;
 public class NewCompilationDto {
     @NotBlank
     private String title;
-    private Boolean pinned;
+    private boolean pinned;
     private List<Integer> events;
 }

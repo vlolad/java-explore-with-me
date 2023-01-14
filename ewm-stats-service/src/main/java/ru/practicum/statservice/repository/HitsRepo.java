@@ -12,12 +12,12 @@ import java.util.List;
 public interface HitsRepo extends JpaRepository<EndpointHit, Integer> {
 
     //Для текущей реализации решил, что @Query будет проще и быстрее, поскольку нет большого кол-ва фильтров поиска
-    @Query("select new ru.practicum.statservice.model.ViewStatsDto(e.app, e.uri, count(e.ip)) from EndpointHit as e" +
+    @Query("select new ru.practicum.statservice.model.ViewStatsDto(e.uri, e.app, count(e.ip)) from EndpointHit as e" +
             " where e.timestamp between ?1 and ?2 and e.uri in ?3 group by e.app, e.uri" +
             " order by count(e.ip) desc")
     List<ViewStatsDto> countEndpointHitsByUri(LocalDateTime start, LocalDateTime end, List<String> uris);
 
-    @Query("select new ru.practicum.statservice.model.ViewStatsDto(e.app, e.uri, count(distinct e.ip))" +
+    @Query("select new ru.practicum.statservice.model.ViewStatsDto(e.uri, e.app, count(distinct e.ip))" +
             " from EndpointHit as e" +
             " where e.timestamp between ?1 and ?2 and e.uri in ?3 group by e.app, e.uri" +
             " order by count(distinct e.ip) desc")
@@ -25,25 +25,27 @@ public interface HitsRepo extends JpaRepository<EndpointHit, Integer> {
                                                             LocalDateTime end, List<String> uris);
 
     //Дополнительно добавил поиск всей статистики без конкретных event
-    @Query("select new ru.practicum.statservice.model.ViewStatsDto(e.app, e.uri, count(e.ip)) from EndpointHit as e" +
+    @Query("select new ru.practicum.statservice.model.ViewStatsDto(e.uri, e.app, count(e.ip)) from EndpointHit as e" +
             " where e.timestamp between ?1 and ?2 group by e.app, e.uri" +
             " order by count(e.ip) desc")
     List<ViewStatsDto> countEndpointHits(LocalDateTime start, LocalDateTime end);
 
-    @Query("select new ru.practicum.statservice.model.ViewStatsDto(e.app, e.uri, count(distinct e.ip))" +
+    @Query("select new ru.practicum.statservice.model.ViewStatsDto(e.uri, e.app, count(distinct e.ip))" +
             " from EndpointHit as e" +
             " where e.timestamp between ?1 and ?2 group by e.app, e.uri" +
             " order by count(distinct e.ip) desc")
     List<ViewStatsDto> countEndpointHitsWhereUniqueIps(LocalDateTime start, LocalDateTime end);
 
-    @Query("select new ru.practicum.statservice.model.ViewStatsDto(e.app, e.uri, count(e.ip))" +
+    @Query("select new ru.practicum.statservice.model.ViewStatsDto(e.uri, e.app, count(e.ip))" +
             " from EndpointHit as e" +
             " where e.uri in (?1)" +
+            " group by e.app, e. uri" +
             " order by count(e.ip) desc")
-    List<ViewStatsDto> countEndpointHitsWhereIpsIn(List<String> uris, Pageable pageable);
+    List<ViewStatsDto> countEndpointHitsWhereIpsIn(List<String> uris);
 
-    @Query("select new ru.practicum.statservice.model.ViewStatsDto(e.app, e.uri, count(e.ip))" +
-            " from EndpointHit as e" +
+    @Query("select new ru.practicum.statservice.model.ViewStatsDto(e.uri, e.app, count(e.ip))" +
+            " from EndpointHit as e " +
+            " group by e.app, e. uri" +
             " order by count(e.ip) desc")
     List<ViewStatsDto> countEndpointHits(Pageable pageable);
 }

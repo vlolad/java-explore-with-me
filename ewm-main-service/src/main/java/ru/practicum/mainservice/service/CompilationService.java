@@ -1,11 +1,11 @@
 package ru.practicum.mainservice.service;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import ru.practicum.mainservice.controller.request.NewCompilationDto;
+import ru.practicum.mainservice.controller.model.NewCompilationDto;
 import ru.practicum.mainservice.exception.NotFoundException;
 import ru.practicum.mainservice.mapper.UniversalMapper;
 import ru.practicum.mainservice.model.Compilation;
@@ -19,27 +19,25 @@ import java.util.Optional;
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class CompilationService {
 
-    public final CompilationRepository repo;
-    private final UniversalMapper mapper;
+    public final CompilationRepository compilationRepo;
+    private final UniversalMapper universalMapper;
     private final EventRepository eventRepo;
-
-    @Autowired
-    public CompilationService(CompilationRepository repo, UniversalMapper mapper,
-                              EventRepository eventRepo) {
-        this.repo = repo;
-        this.mapper = mapper;
-        this.eventRepo = eventRepo;
-    }
 
     @Transactional(readOnly = true)
     public List<CompilationDto> findAll(Boolean pinned, Integer from, Integer size) {
         PageRequest page = PageRequest.of(from / size, size);
-        List<Compilation> result = repo.findAllByPinned(pinned, page).getContent();
+        List<Compilation> result;
+        if (pinned == null) {
+            result = compilationRepo.findAll(page).getContent();
+        } else {
+            result = compilationRepo.findAllByPinned(pinned, page).getContent();
+        }
 
         log.info("Found: {}", result.size());
-        return mapper.toDtoList(result);
+        return universalMapper.toDtoList(result);
     }
 
     @Transactional(readOnly = true)
@@ -47,29 +45,25 @@ public class CompilationService {
         Compilation result = findCompilation(id);
 
         log.info("Send compilation...");
-        return mapper.toDto(result);
+        return universalMapper.toDto(result);
     }
 
     @Transactional
     public CompilationDto create(NewCompilationDto req) {
         Compilation compilation = new Compilation();
-        if (req.getPinned() != null) {
-            compilation.setPinned(req.getPinned());
-        } else {
-            compilation.setPinned(Boolean.FALSE);
-        }
+        compilation.setPinned(req.isPinned());
         compilation.setTitle(req.getTitle());
         if (req.getEvents() != null && !req.getEvents().isEmpty()) {
             compilation.setEvents(eventRepo.findByIdIn(req.getEvents()));
         }
-        repo.save(compilation);
+        compilationRepo.save(compilation);
         log.info("Compilation saved successfully.");
-        return mapper.toDto(compilation);
+        return universalMapper.toDto(compilation);
     }
 
     @Transactional
-    public void deleteCompilation(Integer id) {
-        repo.deleteById(id);
+    public void delete(Integer id) {
+        compilationRepo.deleteById(id);
     }
 
     @Transactional
@@ -77,7 +71,7 @@ public class CompilationService {
         Compilation compilation = findCompilation(compId);
         compilation.getEvents().removeIf(event -> event.getId().equals(eventId));
         log.info("Event removed.");
-        repo.save(compilation);
+        compilationRepo.save(compilation);
     }
 
     @Transactional
@@ -89,21 +83,21 @@ public class CompilationService {
     }
 
     @Transactional
-    public void unpinCompilation(Integer id) {
+    public void unpin(Integer id) {
         Compilation compilation = findCompilation(id);
-        compilation.setPinned(Boolean.FALSE);
+        compilation.setPinned(false);
         log.info("Compilation unpinned.");
     }
 
     @Transactional
-    public void pinCompilation(Integer id) {
+    public void pin(Integer id) {
         Compilation compilation = findCompilation(id);
-        compilation.setPinned(Boolean.TRUE);
+        compilation.setPinned(true);
         log.info("Compilation pinned.");
     }
 
     private Compilation findCompilation(Integer id) {
-        Optional<Compilation> compilation = repo.findById(id);
+        Optional<Compilation> compilation = compilationRepo.findById(id);
         if (compilation.isEmpty()) {
             throw new NotFoundException("Сompilation with id=" + id + " not found.");
         } else {
