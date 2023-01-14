@@ -21,4 +21,7 @@ public interface EventRepository extends JpaRepository<Event, Integer>, JpaSpeci
     List<Event> findByIdIn(Set<Integer> ids, Pageable page);
 
     Optional<Event> findByCategoryId(Integer categoryId);
+
+    Optional<Event> findByIdAndInitiatorId(Integer id, Integer initiatorId);
+
 }

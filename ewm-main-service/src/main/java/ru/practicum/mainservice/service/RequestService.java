@@ -42,14 +42,14 @@ public class RequestService {
 
     @Transactional
     public ParticipationRequestDto create(Integer userId, Integer eventId) {
-        User requester = findUser(userId);
-        Event event = findEvent(eventId);
-        //Проверка запроса
         Optional<Request> check = requestRepo.findByEventIdAndRequesterId(eventId, userId);
         if (check.isPresent()) {
             throw new RestrictedException("You are already sent request for this event.");
         }
-        if (event.getInitiator().getId().equals(requester.getId())) {
+
+        Event event = findEvent(eventId);
+        //Проверка запроса
+        if (event.getInitiator().getId().equals(userId)) {
             throw new RestrictedException("You can't send request to your event.");
         }
         if (!event.getState().equals(EventState.PUBLISHED)) {
@@ -59,6 +59,8 @@ public class RequestService {
                 && event.getParticipantLimit() <= event.getConfirmedRequests()) {
             throw new RestrictedException("No free space on this event.");
         }
+
+        User requester = findUser(userId);
 
         Request request = new Request();
         request.setCreated(LocalDateTime.now());
@@ -90,7 +92,7 @@ public class RequestService {
     }
 
     @Transactional(readOnly = true)
-    public List<ParticipationRequestDto> getRequestsForUserEvent(Integer userId, Integer eventId) {
+    public List<ParticipationRequestDto> getUserEventsRequests(Integer userId, Integer eventId) {
         List<Request> result = requestRepo.findAllByEventIdAndEventInitiatorId(eventId, userId);
         log.info("Found: {}", result.size());
 
@@ -132,8 +134,7 @@ public class RequestService {
         return universalMapper.toRequestDto(request);
     }
 
-    @Transactional
-    protected void automaticRejectRequests(Integer eventId) {
+    private void automaticRejectRequests(Integer eventId) {
         List<Request> allRequests = requestRepo.findAllByEventIdAndStatus(eventId, RequestStatus.PENDING);
         log.warn("Auto-reject {} requests for event id={}", allRequests.size(), eventId);
         for (Request request : allRequests) {

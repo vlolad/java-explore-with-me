@@ -19,8 +19,10 @@ public class UpdateEventRequest {
     private Integer eventId;
     @Size(min = 3, max = 120)
     private String title;
+    @Size(min = 20, max = 2000)
     private String annotation;
     private Integer category;
+    @Size(min = 20, max = 7000)
     private String description;
     @Future
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss")

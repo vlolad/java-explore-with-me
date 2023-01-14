@@ -6,10 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import ru.practicum.mainservice.model.Location;
 
-import javax.validation.constraints.Future;
-import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.NotNull;
-import javax.validation.constraints.Size;
+import javax.validation.constraints.*;
 import java.time.LocalDateTime;
 
 @Data
@@ -33,6 +30,7 @@ public class NewEventDto {
     @NotNull
     private Location location;
     private boolean paid;
+    @PositiveOrZero
     private int participantLimit;
     private boolean requestModeration;
 }

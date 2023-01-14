@@ -3,6 +3,7 @@ package ru.practicum.statservice.controller;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import ru.practicum.statservice.model.EndpointHitDto;
 import ru.practicum.statservice.model.StatsRequestDto;
@@ -18,6 +19,7 @@ import java.util.List;
 @Slf4j
 @RestController
 @RequiredArgsConstructor
+@Validated
 public class EndpointHitsController {
 
     private final EndpointHitsService service;

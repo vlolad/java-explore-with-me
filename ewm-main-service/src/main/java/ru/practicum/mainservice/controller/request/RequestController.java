@@ -40,10 +40,10 @@ public class RequestController {
     }
 
     @GetMapping("/users/{userId}/events/{eventId}/requests")
-    public List<ParticipationRequestDto> getRequestsForUserEvent(@PathVariable("userId") Integer userId,
+    public List<ParticipationRequestDto> getUserEventsRequests(@PathVariable("userId") Integer userId,
                                                                  @PathVariable("eventId") Integer eventId) {
-        log.info("Get request for get user id={} event id={} requests", userId, eventId);
-        return service.getRequestsForUserEvent(userId, eventId);
+        log.info("Get (user id={}) event id={} requests", userId, eventId);
+        return service.getUserEventsRequests(userId, eventId);
     }
 
     @PatchMapping("/users/{userId}/events/{eventId}/requests/{requestId}/confirm")

@@ -121,11 +121,10 @@ public class EventService {
 
     @Transactional
     public EventFullDto updateByUser(Integer userId, UpdateEventRequest req) {
-        User initiator = findUser(userId);
         Event event = findEvent(req.getEventId());
 
         //Проверка всех требований, по спецификации
-        if (!event.getInitiator().getId().equals(initiator.getId())) {
+        if (!event.getInitiator().getId().equals(userId)) {
             throw new RestrictedException("You can not edit another events.");
         }
         if (event.getState().equals(EventState.PUBLISHED)) {
@@ -134,6 +133,11 @@ public class EventService {
         if (event.getEventDate().isBefore(LocalDateTime.now().plusHours(2))) {
             throw new RestrictedException("You can not edit events that starts in 2 hours.");
         }
+        if (req.getEventDate() != null && req.getEventDate().isBefore(LocalDateTime.now().plusHours(2))) {
+            throw new BadRequestException("Event can't start earlier than after 2 hours.");
+        }
+
+        User initiator = findUser(userId); //Проверка, что пользователь ещё существует
 
         log.info("Updating event id={}", event.getId());
         updateEvent(event, universalMapper.toUpdateUtilDto(req));
@@ -153,7 +157,6 @@ public class EventService {
         Category category = findCategory(eventDto.getCategory());
         User user = findUser(userId);
         Event event = universalMapper.toEntity(eventDto, category, now, eventDate, user);
-        //event.setIsAvailable(Boolean.TRUE);
         event.setState(EventState.PENDING);
         event.setViews(0L);
         log.info("Saving new event: {}", event);
@@ -163,11 +166,7 @@ public class EventService {
     }
 
     public EventFullDto getUserEventById(Integer userId, Integer eventId) {
-        User user = findUser(userId);
-        Event event = findEvent(eventId);
-        if (!event.getInitiator().getId().equals(user.getId())) {
-            throw new RestrictedException("Access denied: you are not initiator of this event.");
-        }
+        Event event = findEventByIdAndInitiator(eventId, userId);
 
         log.info("Event with id={} found successfully.", eventId);
         setStatsToEvent(event);
@@ -176,12 +175,10 @@ public class EventService {
 
     @Transactional
     public EventFullDto cancelByUser(Integer userId, Integer eventId) {
-        User user = findUser(userId);
-        Event event = findEvent(eventId);
-        if (!event.getInitiator().getId().equals(user.getId())) {
-            throw new RestrictedException("Access denied: you are not initiator of this event.");
+        Event event = findEventByIdAndInitiator(eventId, userId);
+        if (!event.getState().equals(EventState.PENDING)) {
+            throw new RestrictedException("Can't cancel event if it already published. Please contact administration.");
         }
-
         event.setState(EventState.CANCELED);
         log.info("Event with id={} cancelled successfully.", eventId);
         setStatsToEvent(event);
@@ -308,6 +305,16 @@ public class EventService {
         } else {
             log.debug("Find event with id={}", id);
             return event.get();
+        }
+    }
+
+    private Event findEventByIdAndInitiator(Integer eventId, Integer userId) {
+        Optional<Event> result = eventRepo.findByIdAndInitiatorId(eventId, userId);
+        if (result.isEmpty()) {
+            throw new NotFoundException("Event with id=" + eventId
+                    + " not found with such initiator id (id=" + userId + ")");
+        } else {
+            return result.get();
         }
     }
 
