@@ -45,7 +45,7 @@ import static ru.practicum.mainservice.util.DateFormatter.FORMATTER;
 @Transactional(readOnly = true)
 public class EventService {
     @Value("${this-app.name}")
-    private String APP_NAME;
+    private String appName;
 
     private final EventRepository eventRepo;
     private final StatsClient statsClient;
@@ -323,7 +323,7 @@ public class EventService {
 
     private void sentHit(HttpServletRequest req) {
         try {
-            HitDto hit = new HitDto(0, APP_NAME, req.getRequestURI(),
+            HitDto hit = new HitDto(0, appName, req.getRequestURI(),
                     req.getRemoteAddr(), LocalDateTime.now().format(FORMATTER));
             statsClient.makeHit(hit);
             log.info("Send hit to stats-server: {}", hit);
