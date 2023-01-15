@@ -11,6 +11,7 @@ import java.util.Optional;
 @Repository
 public interface CommentRepository extends JpaRepository<Comment, Integer> {
     List<Comment> findAllByEventIdAndStateNot(Integer eventId, CommentState state);
+
     Optional<Comment> findByIdAndEventId(Integer id, Integer eventId);
 
     List<Comment> findAllByAuthorId(Integer authorId);

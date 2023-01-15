@@ -72,7 +72,9 @@ public interface UniversalMapper {
 
     //Маппинг Comments
     CommentDto toCommentDto(Comment entity);
+
     List<CommentDto> toCommentDtoList(List<Comment> entityList);
+
     @Mapping(target = "author", ignore = true)
     Comment toCommentEntity(NewCommentDto dto);
 }
