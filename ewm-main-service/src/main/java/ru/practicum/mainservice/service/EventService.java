@@ -21,12 +21,15 @@ import ru.practicum.mainservice.exception.NotFoundException;
 import ru.practicum.mainservice.exception.RestrictedException;
 import ru.practicum.mainservice.mapper.UniversalMapper;
 import ru.practicum.mainservice.model.Category;
+import ru.practicum.mainservice.model.Comment;
 import ru.practicum.mainservice.model.Event;
 import ru.practicum.mainservice.model.User;
 import ru.practicum.mainservice.model.dto.*;
 import ru.practicum.mainservice.repository.CategoryRepository;
+import ru.practicum.mainservice.repository.CommentRepository;
 import ru.practicum.mainservice.repository.EventRepository;
 import ru.practicum.mainservice.repository.UserRepository;
+import ru.practicum.mainservice.util.CommentState;
 import ru.practicum.mainservice.util.EventState;
 import ru.practicum.mainservice.util.StatsClient;
 
@@ -52,6 +55,7 @@ public class EventService {
     private final UniversalMapper universalMapper;
     private final UserRepository userRepo;
     private final CategoryRepository categoryRepo;
+    private final CommentRepository commentRepo;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public List<EventShortDto> getAll(GetEventsRequest req) {
@@ -98,13 +102,12 @@ public class EventService {
     }
 
     public EventFullDto getById(Integer id, HttpServletRequest req) {
-        Event event = eventRepo.findById(id)
-                .orElseThrow(() -> new NotFoundException("Event with id=" + id + " not found."));
+        Event event = findEvent(id);
         log.debug("event - confirmedRequests = {}", event.getConfirmedRequests());
 
         setStatsToEvent(event);
+        setCommentsToEvent(event);
         sentHit(req);
-
         return universalMapper.toFullDto(event);
     }
 
@@ -115,7 +118,6 @@ public class EventService {
         List<Event> result = eventRepo.findAllByInitiator(initiator, page).getContent();
         log.info("Found events = {}", result.size());
         setStatsToEvents(result);
-
         return universalMapper.toShortDtoList(result);
     }
 
@@ -144,6 +146,7 @@ public class EventService {
 
         log.info("Updated successfully.");
         setStatsToEvent(event);
+        setCommentsToEvent(event);
         return universalMapper.toFullDto(event);
     }
 
@@ -182,6 +185,7 @@ public class EventService {
         event.setState(EventState.CANCELED);
         log.info("Event with id={} cancelled successfully.", eventId);
         setStatsToEvent(event);
+        setCommentsToEvent(event);
         return universalMapper.toFullDto(event);
     }
 
@@ -194,6 +198,7 @@ public class EventService {
         List<Event> result = eventRepo.findAll(spec, page).getContent();
         log.info("Found: {}", result.size());
         setStatsToEvents(result);
+        setCommentsToEvent(result);
         return universalMapper.toFullDtoList(result);
     }
 
@@ -209,6 +214,7 @@ public class EventService {
 
         log.info("Updated successfully.");
         setStatsToEvent(event);
+        setCommentsToEvent(event);
         return universalMapper.toFullDto(event);
     }
 
@@ -228,6 +234,7 @@ public class EventService {
         event.setPublishedOn(ts);
         log.info("Event id={} published successfully at {}.", eventId, ts);
         setStatsToEvent(event);
+        setCommentsToEvent(event);
         return universalMapper.toFullDto(event);
     }
 
@@ -241,6 +248,7 @@ public class EventService {
         event.setState(EventState.CANCELED);
         log.info("Event id={} cancelled.", eventId);
         setStatsToEvent(event);
+        setCommentsToEvent(event);
         return universalMapper.toFullDto(event);
     }
 
@@ -365,6 +373,20 @@ public class EventService {
         }
     }
 
+    private void setCommentsToEvent(Event event) {
+        event.setComments(getComments(event.getId()));
+    }
+
+    private void setCommentsToEvent(List<Event> events) {
+        for (Event event : events) {
+            setCommentsToEvent(event);
+        }
+    }
+
+    private List<Comment> getComments(Integer eventId) {
+        return commentRepo.findAllByEventIdAndStateNot(eventId, CommentState.REJECTED);
+    }
+
     private Map<Integer, Long> getStatsInfo(List<Integer> ids) {
         List<String> uris = new ArrayList<>();
         for (Integer id : ids) {
@@ -389,8 +411,7 @@ public class EventService {
         return views;
     }
 
-    @Transactional
-    protected void updateEvent(Event event, EventUpdateUtilDto req) {
+    private void updateEvent(Event event, EventUpdateUtilDto req) {
         if (req.getTitle() != null && !req.getTitle().isBlank()) {
             event.setTitle(req.getTitle());
         }

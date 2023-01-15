@@ -10,6 +10,8 @@ import ru.practicum.mainservice.util.EventState;
 import javax.persistence.*;
 import javax.validation.constraints.NotNull;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "events")
@@ -59,5 +61,6 @@ public class Event {
     private Integer confirmedRequests;
     @Transient
     private Long views;
-
+    @Transient
+    private List<Comment> comments = new ArrayList<>();
 }

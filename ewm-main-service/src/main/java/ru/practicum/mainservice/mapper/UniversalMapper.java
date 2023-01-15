@@ -3,6 +3,7 @@ package ru.practicum.mainservice.mapper;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import ru.practicum.mainservice.controller.model.AdminUpdateEventRequest;
+import ru.practicum.mainservice.controller.model.NewCommentDto;
 import ru.practicum.mainservice.controller.model.UpdateEventRequest;
 import ru.practicum.mainservice.model.*;
 import ru.practicum.mainservice.model.dto.*;
@@ -68,4 +69,10 @@ public interface UniversalMapper {
     ParticipationRequestDto toRequestDto(Request entity);
 
     List<ParticipationRequestDto> toRequestDtoList(List<Request> entityList);
+
+    //Маппинг Comments
+    CommentDto toCommentDto(Comment entity);
+    List<CommentDto> toCommentDtoList(List<Comment> entityList);
+    @Mapping(target = "author", ignore = true)
+    Comment toCommentEntity(NewCommentDto dto);
 }
