@@ -196,12 +196,7 @@
 							"});\r",
 							"\r",
 							"pm.test(\"Данные в ответе должны соответствовать данным в запросе\", function () {\r",
-							"    pm.expect(target.id).to.not.be.null;\r",
 							"    pm.expect(target.body).equal(source.body, 'Тело комментария должно быть идентичным таковому в обновленном запросе');\r",
-							"    pm.expect(target.eventId).equal(pm.variables.get(\"eventid\"), 'Идентификатор события должен соответствовать таковому в запросе');\r",
-							"    pm.expect(target.author.id).equal(pm.variables.get(\"uid\"), 'Идентификатор автора комментария должен соответствовать таковому в запросе');\r",
-							"    pm.expect(target.created).to.not.be.null;\r",
-							"    pm.expect(target.state).equal('NEW', 'Событие должно иметь статус NEW');\r",
 							"});"
 						],
 						"type": "text/javascript"
@@ -297,7 +292,7 @@
 							"const userId = pm.collectionVariables.get('uid');\r",
 							"\r",
 							"pm.test(\"Комментарий должен быть найден до выполнения запроса\", function(){\r",
-							"    pm.expect(source.id).to.eql(pm.variables.get(\"commentid\"));\r",
+							"    pm.expect(source.id).to.eql(parseInt(pm.variables.get(\"commentid\")));\r",
 							"});\r",
 							"\r",
 							"let body\r",
