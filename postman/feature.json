@@ -79,8 +79,8 @@
 							"pm.test(\"Данные в ответе должны соответствовать данным в запросе\", function () {\r",
 							"    pm.expect(target.id).to.not.be.null;\r",
 							"    pm.expect(target.body).equal(source.body, 'Тело комментария должно быть идентичным таковому в запросе');\r",
-							"    pm.expect(target.eventId).equal(pm.variables.get(\"eventid\"), 'Идентификатор события должен соответствовать таковому в запросе');\r",
-							"    pm.expect(target.author.id).equal(pm.variables.get(\"uid\"), 'Идентификатор автора комментария должен соответствовать таковому в запросе');\r",
+							"    pm.expect(target.eventId).equal(source.eventId, 'Идентификатор события должен соответствовать таковому в запросе');\r",
+							"    pm.expect(target.author.id).equal(source.authorId, 'Идентификатор автора комментария должен соответствовать таковому в запросе');\r",
 							"    pm.expect(target.created).to.not.be.null;\r",
 							"    pm.expect(target.state).equal('NEW', 'Событие должно иметь статус NEW');\r",
 							"});"
