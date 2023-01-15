@@ -783,7 +783,7 @@
 					"        return {",
 					"            eventId: eventId,",
 					"            authorId: userId,",
-					"            body: pm.variables.replaceIn('{{$randomLoremSentence}}')",
+					"            body: pm.variables.replaceIn('{{$randomLoremParagraphs}}')",
 					"        };",
 					"    }",
 					"",
