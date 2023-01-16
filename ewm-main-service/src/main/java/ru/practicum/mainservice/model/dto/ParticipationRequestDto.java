@@ -3,7 +3,7 @@ package ru.practicum.mainservice.model.dto;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import ru.practicum.mainservice.util.RequestStatus;
+import ru.practicum.mainservice.util.status.RequestStatus;
 
 @Data
 @AllArgsConstructor

@@ -7,6 +7,7 @@ import ru.practicum.mainservice.controller.model.NewCommentDto;
 import ru.practicum.mainservice.controller.model.UpdateEventRequest;
 import ru.practicum.mainservice.model.*;
 import ru.practicum.mainservice.model.dto.*;
+import ru.practicum.mainservice.util.status.CommentState;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -75,6 +76,8 @@ public interface UniversalMapper {
 
     List<CommentDto> toCommentDtoList(List<Comment> entityList);
 
-    @Mapping(target = "author", ignore = true)
-    Comment toCommentEntity(NewCommentDto dto);
+    @Mapping(target = "author", source = "user")
+    @Mapping(target = "created", source = "creationDate")
+    @Mapping(target = "state", source = "commentState")
+    Comment toCommentEntity(NewCommentDto dto, User user, LocalDateTime creationDate, CommentState commentState);
 }

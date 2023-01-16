@@ -10,6 +10,7 @@ import ru.practicum.mainservice.model.dto.CommentDto;
 import ru.practicum.mainservice.service.CommentService;
 
 import javax.validation.Valid;
+import javax.validation.constraints.NotNull;
 import java.util.List;
 
 @Slf4j
@@ -23,34 +24,31 @@ public class UserCommentController {
     @PostMapping("/events/{eventId}/comments")
     public CommentDto create(@PathVariable Integer eventId,
                              @RequestParam(name = "userId") Integer userId,
-                             @RequestBody @Valid NewCommentDto comment) {
-        comment.setEventId(eventId);
-        comment.setAuthorId(userId);
-        log.info("POST-request - create new comment: {}", comment);
+                             @RequestBody @Valid NewCommentDto newComment) {
+        newComment.setEventId(eventId);
+        newComment.setAuthorId(userId);
+        log.info("POST-request - create new comment: {}", newComment);
 
-        return service.create(comment);
+        return service.create(newComment);
     }
 
-    @PatchMapping(("/events/{eventId}/comments/{commentId}"))
-    public CommentDto update(@PathVariable Integer eventId,
-                             @PathVariable Integer commentId,
-                             @RequestParam(name = "userId") Integer userId,
+    @PatchMapping(("/comments/{commentId}"))
+    public CommentDto update(@PathVariable Integer commentId,
+                             @RequestParam(name = "userId") @NotNull Integer userId,
                              @RequestBody @Valid UpdateCommentRequest update) {
-        update.setEventId(eventId);
         update.setId(commentId);
         update.setAuthorId(userId);
-        log.info("PATCH-request - update comment id={} in event id={} from user id={}", commentId, eventId, userId);
+        log.info("PATCH-request - update comment id={} from user id={}", commentId, userId);
 
         return service.update(update);
     }
 
-    @DeleteMapping("/events/{eventId}/comments/{commentId}")
-    public void delete(@PathVariable Integer eventId,
-                       @PathVariable Integer commentId,
-                       @RequestParam(name = "userId") Integer userId) {
-        log.warn("DELETE-request - delete comment id={} in event id={} from user id={}", commentId, eventId, userId);
+    @DeleteMapping("/comments/{commentId}")
+    public void delete(@PathVariable Integer commentId,
+                       @RequestParam(name = "userId") @NotNull Integer userId) {
+        log.warn("DELETE-request - delete comment id={} from user id={}", commentId, userId);
 
-        service.delete(commentId, eventId, userId);
+        service.delete(commentId, userId);
     }
 
     @GetMapping("/users/{userId}/comments")

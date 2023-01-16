@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import ru.practicum.mainservice.exception.BadRequestException;
 import ru.practicum.mainservice.exception.NotFoundException;
+import ru.practicum.mainservice.exception.RestrictedException;
 
 import javax.validation.ConstraintViolationException;
 import java.time.LocalDateTime;
@@ -21,6 +22,18 @@ public class ErrorHandler {
 
     static {
         Locale.setDefault(new Locale("en"));
+    }
+
+    @ExceptionHandler
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public ApiErrorResponse handleRestrictedException(final RestrictedException e) {
+        log.error("RestrictedException: {}", e.getMessage());
+        ApiErrorResponse response = new ApiErrorResponse();
+        response.setTimestamp(LocalDateTime.now());
+        response.setStatus("FORBIDDEN");
+        response.setMessage(e.getMessage());
+        response.setReason("For the requested operation the conditions are not met.");
+        return response;
     }
 
     @ExceptionHandler
@@ -37,7 +50,7 @@ public class ErrorHandler {
 
     @ExceptionHandler
     @ResponseStatus(HttpStatus.NOT_FOUND)
-    public ApiErrorResponse handleBadRequestException(final NotFoundException e) {
+    public ApiErrorResponse handleNotFoundException(final NotFoundException e) {
         log.error("NotFoundException: {}", e.getMessage());
         ApiErrorResponse response = new ApiErrorResponse();
         response.setTimestamp(LocalDateTime.now());

@@ -13,8 +13,7 @@ import ru.practicum.mainservice.model.Comment;
 import ru.practicum.mainservice.model.User;
 import ru.practicum.mainservice.model.dto.CommentDto;
 import ru.practicum.mainservice.repository.CommentRepository;
-import ru.practicum.mainservice.repository.UserRepository;
-import ru.practicum.mainservice.util.CommentState;
+import ru.practicum.mainservice.util.status.CommentState;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -23,21 +22,20 @@ import java.util.Optional;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class CommentService {
 
     private final CommentRepository commentRepo;
-    private final UserRepository userRepo;
 
     private final UniversalMapper universalMapper;
+    private final UserService userService;
 
-    @Transactional(readOnly = true)
     public CommentDto findById(Integer id) {
         Comment comment = findComment(id);
 
         return universalMapper.toCommentDto(comment);
     }
 
-    @Transactional(readOnly = true)
     public List<CommentDto> findAllByUserId(Integer userId) {
         List<Comment> result = commentRepo.findAllByAuthorId(userId);
         log.debug("Found: {}", result.size());
@@ -47,11 +45,8 @@ public class CommentService {
 
     @Transactional
     public CommentDto create(NewCommentDto newComment) {
-        User author = findUser(newComment.getAuthorId());
-        Comment comment = universalMapper.toCommentEntity(newComment);
-        comment.setAuthor(author);
-        comment.setCreated(LocalDateTime.now());
-        comment.setState(CommentState.NEW);
+        User author = userService.findUser(newComment.getAuthorId());
+        Comment comment = universalMapper.toCommentEntity(newComment, author, LocalDateTime.now(), CommentState.NEW);
 
         log.info("Saving new comment.");
         return universalMapper.toCommentDto(commentRepo.save(comment));
@@ -59,7 +54,7 @@ public class CommentService {
 
     @Transactional
     public CommentDto update(UpdateCommentRequest update) {
-        Comment comment = findByIds(update.getId(), update.getEventId());
+        Comment comment = findComment(update.getId());
         if (!comment.getAuthor().getId().equals(update.getAuthorId())) {
             throw new RestrictedException("Can't edit comment of another user.");
         }
@@ -70,8 +65,8 @@ public class CommentService {
     }
 
     @Transactional
-    public void delete(Integer commentId, Integer eventId, Integer authorId) {
-        Comment comment = findByIds(commentId, eventId);
+    public void delete(Integer commentId, Integer authorId) {
+        Comment comment = findComment(commentId);
         if (!comment.getAuthor().getId().equals(authorId)) {
             throw new RestrictedException("Can't edit comment of another user.");
         }
@@ -80,7 +75,6 @@ public class CommentService {
         commentRepo.deleteById(commentId);
     }
 
-    @Transactional(readOnly = true)
     public List<CommentDto> findNewComments() {
         List<Comment> result = commentRepo.findAllByState(CommentState.NEW);
 
@@ -106,14 +100,12 @@ public class CommentService {
         return universalMapper.toCommentDto(comment);
     }
 
-    private User findUser(Integer id) {
-        Optional<User> user = userRepo.findById(id);
-        if (user.isEmpty()) {
-            throw new NotFoundException("User with id=" + id + " not found. Please contact administration.");
-        } else {
-            log.debug("Find user with id={}", id);
-            return user.get();
-        }
+    protected List<Comment> findCommentsForEvent(Integer eventId) {
+        return commentRepo.findAllByEventIdInAndStateNot(List.of(eventId), CommentState.REJECTED);
+    }
+
+    protected List<Comment> findCommentsForEvents(List<Integer> eventIds) {
+        return commentRepo.findAllByEventIdInAndStateNot(eventIds, CommentState.REJECTED);
     }
 
     private Comment findComment(Integer id) {
@@ -122,16 +114,6 @@ public class CommentService {
             throw new NotFoundException("Comment with id=" + id + " not found.");
         } else {
             log.debug("Found comment id={}).", id);
-            return comment.get();
-        }
-    }
-
-    private Comment findByIds(Integer id, Integer eventId) {
-        Optional<Comment> comment = commentRepo.findByIdAndEventId(id, eventId);
-        if (comment.isEmpty()) {
-            throw new NotFoundException("Comment with id=" + id + " not found for this event.");
-        } else {
-            log.debug("Found comment with id={} for request (eventId={}).", id, eventId);
             return comment.get();
         }
     }

@@ -11,7 +11,6 @@ import javax.validation.constraints.Size;
 @NoArgsConstructor
 public class UpdateCommentRequest {
     private Integer id;
-    private Integer eventId;
     private Integer authorId;
     @Size(min = 15, max = 500)
     private String body;

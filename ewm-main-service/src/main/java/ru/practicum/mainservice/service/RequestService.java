@@ -15,8 +15,8 @@ import ru.practicum.mainservice.model.dto.ParticipationRequestDto;
 import ru.practicum.mainservice.repository.EventRepository;
 import ru.practicum.mainservice.repository.RequestRepository;
 import ru.practicum.mainservice.repository.UserRepository;
-import ru.practicum.mainservice.util.EventState;
-import ru.practicum.mainservice.util.RequestStatus;
+import ru.practicum.mainservice.util.status.EventState;
+import ru.practicum.mainservice.util.status.RequestStatus;
 
 import java.time.LocalDateTime;
 import java.util.List;

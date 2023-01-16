@@ -26,12 +26,10 @@ import ru.practicum.mainservice.model.Event;
 import ru.practicum.mainservice.model.User;
 import ru.practicum.mainservice.model.dto.*;
 import ru.practicum.mainservice.repository.CategoryRepository;
-import ru.practicum.mainservice.repository.CommentRepository;
 import ru.practicum.mainservice.repository.EventRepository;
 import ru.practicum.mainservice.repository.UserRepository;
-import ru.practicum.mainservice.util.CommentState;
-import ru.practicum.mainservice.util.EventState;
-import ru.practicum.mainservice.util.StatsClient;
+import ru.practicum.mainservice.util.status.EventState;
+import ru.practicum.mainservice.util.api.StatsClient;
 
 import javax.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
@@ -55,7 +53,7 @@ public class EventService {
     private final UniversalMapper universalMapper;
     private final UserRepository userRepo;
     private final CategoryRepository categoryRepo;
-    private final CommentRepository commentRepo;
+    private final CommentService commentService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public List<EventShortDto> getAll(GetEventsRequest req) {
@@ -198,8 +196,7 @@ public class EventService {
         List<Event> result = eventRepo.findAll(spec, page).getContent();
         log.info("Found: {}", result.size());
         setStatsToEvents(result);
-        setCommentsToEvent(result);
-        return universalMapper.toFullDtoList(result);
+        return universalMapper.toFullDtoList(setCommentsToEvents(result));
     }
 
     @Transactional
@@ -377,14 +374,27 @@ public class EventService {
         event.setComments(getComments(event.getId()));
     }
 
-    private void setCommentsToEvent(List<Event> events) {
-        for (Event event : events) {
-            setCommentsToEvent(event);
+    private List<Event> setCommentsToEvents(List<Event> events) {
+        List<Integer> eventIds = events.stream().map(Event::getId).collect(Collectors.toList());
+        List<Comment> allComments = getComments(eventIds);
+        Map<Integer, List<Comment>> commentsMap = new HashMap<>();
+        for (Comment comment : allComments) {
+            List<Comment> comments = commentsMap
+                    .computeIfAbsent(comment.getEventId(), k -> new ArrayList<>());
+            comments.add(comment);
         }
+
+        return events.stream().peek(event -> {
+            event.setComments(commentsMap.getOrDefault(event.getId(), new ArrayList<>()));
+        }).collect(Collectors.toList());
     }
 
     private List<Comment> getComments(Integer eventId) {
-        return commentRepo.findAllByEventIdAndStateNot(eventId, CommentState.REJECTED);
+        return commentService.findCommentsForEvent(eventId);
+    }
+
+    private List<Comment> getComments(List<Integer> eventIds) {
+        return commentService.findCommentsForEvents(eventIds);
     }
 
     private Map<Integer, Long> getStatsInfo(List<Integer> ids) {

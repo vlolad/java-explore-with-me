@@ -5,7 +5,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.Formula;
-import ru.practicum.mainservice.util.EventState;
+import ru.practicum.mainservice.util.status.EventState;
 
 import javax.persistence.*;
 import javax.validation.constraints.NotNull;

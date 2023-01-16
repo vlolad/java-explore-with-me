@@ -216,13 +216,11 @@
 					}
 				},
 				"url": {
-					"raw": "{{baseUrl}}/events/{{eventid}}/comments/{{commentid}}?userId={{uid}}",
+					"raw": "{{baseUrl}}/comments/{{commentid}}?userId={{uid}}",
 					"host": [
 						"{{baseUrl}}"
 					],
 					"path": [
-						"events",
-						"{{eventid}}",
 						"comments",
 						"{{commentid}}"
 					],
@@ -317,13 +315,11 @@
 				"method": "DELETE",
 				"header": [],
 				"url": {
-					"raw": "{{baseUrl}}/events/{{eventid}}/comments/{{commentid}}?userId={{uid}}",
+					"raw": "{{baseUrl}}/comments/{{commentid}}?userId={{uid}}",
 					"host": [
 						"{{baseUrl}}"
 					],
 					"path": [
-						"events",
-						"{{eventid}}",
 						"comments",
 						"{{commentid}}"
 					],
