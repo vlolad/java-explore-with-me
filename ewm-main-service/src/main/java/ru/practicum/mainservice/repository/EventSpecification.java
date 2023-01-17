@@ -2,7 +2,7 @@ package ru.practicum.mainservice.repository;
 
 import org.springframework.data.jpa.domain.Specification;
 import ru.practicum.mainservice.model.Event;
-import ru.practicum.mainservice.util.EventState;
+import ru.practicum.mainservice.util.status.EventState;
 
 import java.time.LocalDateTime;
 import java.util.List;

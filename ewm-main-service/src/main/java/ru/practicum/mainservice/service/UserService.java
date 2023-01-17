@@ -5,12 +5,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import ru.practicum.mainservice.exception.NotFoundException;
 import ru.practicum.mainservice.mapper.UniversalMapper;
 import ru.practicum.mainservice.model.User;
 import ru.practicum.mainservice.model.dto.UserDto;
 import ru.practicum.mainservice.repository.UserRepository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Slf4j
 @Service
@@ -44,5 +46,15 @@ public class UserService {
     @Transactional
     public void delete(Integer id) {
         userRepo.deleteById(id);
+    }
+
+    protected User findUser(Integer id) {
+        Optional<User> user = userRepo.findById(id);
+        if (user.isEmpty()) {
+            throw new NotFoundException("User with id=" + id + " not found. Please contact administration.");
+        } else {
+            log.debug("Find user with id={}", id);
+            return user.get();
+        }
     }
 }

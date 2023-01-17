@@ -1,4 +1,4 @@
-package ru.practicum.mainservice.util;
+package ru.practicum.mainservice.util.api;
 
 import org.springframework.http.*;
 import org.springframework.http.ResponseEntity;

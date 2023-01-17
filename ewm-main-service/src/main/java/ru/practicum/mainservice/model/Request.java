@@ -4,7 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import ru.practicum.mainservice.util.RequestStatus;
+import ru.practicum.mainservice.util.status.RequestStatus;
 
 import javax.persistence.*;
 import java.time.LocalDateTime;

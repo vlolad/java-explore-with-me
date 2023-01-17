@@ -3,9 +3,11 @@ package ru.practicum.mainservice.mapper;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import ru.practicum.mainservice.controller.model.AdminUpdateEventRequest;
+import ru.practicum.mainservice.controller.model.NewCommentDto;
 import ru.practicum.mainservice.controller.model.UpdateEventRequest;
 import ru.practicum.mainservice.model.*;
 import ru.practicum.mainservice.model.dto.*;
+import ru.practicum.mainservice.util.status.CommentState;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -68,4 +70,14 @@ public interface UniversalMapper {
     ParticipationRequestDto toRequestDto(Request entity);
 
     List<ParticipationRequestDto> toRequestDtoList(List<Request> entityList);
+
+    //Маппинг Comments
+    CommentDto toCommentDto(Comment entity);
+
+    List<CommentDto> toCommentDtoList(List<Comment> entityList);
+
+    @Mapping(target = "author", source = "user")
+    @Mapping(target = "created", source = "creationDate")
+    @Mapping(target = "state", source = "commentState")
+    Comment toCommentEntity(NewCommentDto dto, User user, LocalDateTime creationDate, CommentState commentState);
 }

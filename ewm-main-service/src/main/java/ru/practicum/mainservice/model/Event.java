@@ -5,11 +5,13 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.Formula;
-import ru.practicum.mainservice.util.EventState;
+import ru.practicum.mainservice.util.status.EventState;
 
 import javax.persistence.*;
 import javax.validation.constraints.NotNull;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "events")
@@ -59,5 +61,6 @@ public class Event {
     private Integer confirmedRequests;
     @Transient
     private Long views;
-
+    @Transient
+    private List<Comment> comments = new ArrayList<>();
 }
