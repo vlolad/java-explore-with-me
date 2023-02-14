@@ -10,10 +10,13 @@ Two services backend application, degree project in Yandex.Practicum.
 * For admins - make compilations and pin it to the main board
 * Record views statistics in another microservice
 
-## Database structure:
-**TBA (2023)**
-
 ## Project structure:
-**TBA (2023)**
+1. Main server - all base functionality
+2. Stats server - save and load statistics
+
+## Try this out
+1. Clone repo
+2. Build with maven
+3. Run docker compose
 
 **Last pull request:** https://github.com/vlolad/java-explore-with-me/pull/2
